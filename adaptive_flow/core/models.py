@@ -37,6 +37,9 @@ class ActionType(str, Enum):
     PASTE_CLIPBOARD = "PASTE_CLIPBOARD"
     TAKE_SCREENSHOT = "TAKE_SCREENSHOT"
 
+    # إشعارات وتنبيهات
+    NOTIFY_WHATSAPP = "NOTIFY_WHATSAPP"
+
 
 class SpatialBounding(BaseModel):
     x: int = 0

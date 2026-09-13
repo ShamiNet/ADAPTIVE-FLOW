@@ -4,6 +4,7 @@ import uuid
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from adaptive_flow.core.models import ActionType
+from adaptive_flow.ui.constants import PALETTE
 
 
 def validate_flow(task):
@@ -42,18 +43,54 @@ class ProductivityMixin:
         self.copied_step = None
         self.search = ctk.StringVar()
         self.repetitions = ctk.StringVar(value='1')
-        bar = ctk.CTkFrame(self, fg_color='#161b22')
-        bar.pack(fill='x', before=self.stats_bar, padx=10, pady=4)
-        commands = [('تراجع', self.undo), ('إعادة', self.redo), ('نسخ', self.copy_step),
-                    ('لصق', self.paste_step), ('تفعيل/تعطيل', self.toggle_step),
-                    ('من المحددة ▶', self.run_selected), ('إيقاف مؤقت/متابعة', self.toggle_pause),
-                    ('فحص', self.inspect_flow), ('تصدير تقرير', self.export_report)]
-        for i, (label, command) in enumerate(commands):
-            ctk.CTkButton(bar, text=label, width=85, command=command).grid(row=0, column=i, padx=3, pady=4)
-        ctk.CTkEntry(bar, textvariable=self.search, placeholder_text='بحث في الخطوات', width=220).grid(row=1, column=0, columnspan=3, sticky='ew', padx=3, pady=4)
-        ctk.CTkLabel(bar, text='بحث في الوصف / النوع / النص').grid(row=1, column=3, columnspan=3)
-        ctk.CTkLabel(bar, text='مرات التشغيل (1–100)').grid(row=1, column=6, columnspan=2)
-        ctk.CTkEntry(bar, textvariable=self.repetitions, width=85).grid(row=1, column=8)
+
+        # شريط موحد مدمج فائق الأناقة بسطر واحد فقط
+        bar = ctk.CTkFrame(self, fg_color=PALETTE["card_bg"], corner_radius=8, height=42,
+                           border_width=1, border_color=PALETTE["border"])
+        bar.pack(fill='x', padx=16, pady=(4, 2))
+        bar.pack_propagate(False)
+
+        # 1. أزرار الأوامر السريعة على اليسار
+        left_cmds = ctk.CTkFrame(bar, fg_color="transparent")
+        left_cmds.pack(side="left", padx=8, pady=4)
+
+        commands = [
+            ('↶ تراجع', self.undo),
+            ('↷ إعادة', self.redo),
+            ('📋 نسخ', self.copy_step),
+            ('📥 لصق', self.paste_step),
+            ('👁️ تفعيل', self.toggle_step),
+            ('▶ من المحددة', self.run_selected),
+            ('🛡️ فحص', self.inspect_flow),
+            ('📊 تقرير', self.export_report),
+        ]
+
+        for label, command in commands:
+            ctk.CTkButton(left_cmds, text=label, height=28, fg_color=PALETTE["card_sub"],
+                          hover_color=PALETTE["card_hover"], border_width=1,
+                          border_color=PALETTE["border"], corner_radius=5,
+                          font=("Segoe UI", 9, "bold"), text_color=PALETTE["text_main"],
+                          command=command).pack(side='left', padx=2)
+
+        # 2. مربع تكرار التشغيل
+        rep_box = ctk.CTkFrame(bar, fg_color="transparent")
+        rep_box.pack(side="left", padx=(6, 10), pady=4)
+
+        ctk.CTkLabel(rep_box, text="تكرار (1-100):", font=("Segoe UI", 9, "bold"),
+                     text_color=PALETTE["text_muted"]).pack(side="left", padx=(0, 4))
+
+        ctk.CTkEntry(rep_box, textvariable=self.repetitions, width=42, height=28, justify="center",
+                     fg_color=PALETTE["card_sub"], border_color=PALETTE["border"], border_width=1,
+                     text_color=PALETTE["text_title"], corner_radius=5).pack(side="left")
+
+        # 3. شريط البحث السريع في الخطوات (يتمدد على اليمين)
+        self.search_entry = ctk.CTkEntry(bar, textvariable=self.search,
+                                         placeholder_text="🔍 بحث في الخطوات أو الإجراءات...",
+                                         justify="right", height=28, fg_color=PALETTE["card_sub"],
+                                         border_color=PALETTE["border"], border_width=1,
+                                         text_color=PALETTE["text_main"], corner_radius=5)
+        self.search_entry.pack(side="right", fill="x", expand=True, padx=(8, 8), pady=6)
+
         self.search.trace_add('write', lambda *_: self.refresh(self.selected_step_id))
         self.bind('<Control-z>', lambda _: self.undo())
         self.bind('<Control-y>', lambda _: self.redo())
@@ -83,7 +120,7 @@ class ProductivityMixin:
         index = self.selected_index()
         if index is not None:
             self.copied_step = self.task.steps[index].model_copy(deep=True)
-            self.status.set('تم نسخ الخطوة داخل المحرر')
+            self.status.set('تم نسخ الخطوة داخل الحافظة')
 
     def paste_step(self):
         if not self.available() or self.copied_step is None:
@@ -120,7 +157,7 @@ class ProductivityMixin:
 
     def inspect_flow(self):
         errors = validate_flow(self.task)
-        messagebox.showinfo('فحص التدفق دون تنفيذ', '\n'.join(errors) if errors else 'جميع الخطوات اجتازت فحص البيانات. لم يتم تنفيذ أي إجراء.')
+        messagebox.showinfo('فحص التدفق دون تنفيذ', '\n'.join(errors) if errors else 'جميع الخطوات اجتازت فحص البيانات بنجاح.')
 
     def export_report(self):
         path = filedialog.asksaveasfilename(defaultextension='.json', filetypes=[('تقرير JSON', '*.json')])
@@ -132,6 +169,6 @@ class ProductivityMixin:
                           'validation_errors': validate_flow(self.task),
                           'last_run': self.last_run}
                 Path(path).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
-                self.status.set('تم تصدير تقرير الفحص وآخر تشغيل')
+                self.status.set('تم تصدير التقرير بنجاح')
             except OSError as exc:
                 messagebox.showerror('تعذر التصدير', str(exc))

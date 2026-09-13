@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 import uiautomation as auto
 from PIL import ImageGrab
+import ctypes
+from ctypes import wintypes
 
 from adaptive_flow.core.models import ActionType, StepAction
 from adaptive_flow.core.resolver import UIAResolver
@@ -19,6 +21,56 @@ SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 class StepExecutionError(Exception):
     pass
+
+def _get_process_name_by_pid(pid: int) -> str:
+    if not pid:
+        return ""
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.QueryFullProcessImageNameW.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)]
+    kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    h_proc = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not h_proc:
+        return ""
+    try:
+        buf = ctypes.create_unicode_buffer(1024)
+        size = wintypes.DWORD(1024)
+        if kernel32.QueryFullProcessImageNameW(h_proc, 0, buf, ctypes.byref(size)):
+            return Path(buf.value).name.lower()
+        return ""
+    except Exception:
+        return ""
+    finally:
+        kernel32.CloseHandle(h_proc)
+
+
+def _is_matching_window(win, target_title: str) -> bool:
+    t_lower = target_title.strip().lower()
+    if not t_lower:
+        return False
+    w_name = (win.Name or "").strip().lower()
+
+    # 1. مطابقة مباشرة
+    if t_lower in w_name:
+        return True
+
+    # 2. مطابقة المفكرة بالعربية والإنجليزية وعملية النظام
+    if t_lower in ("notepad", "notepad.exe", "مفكرة", "المفكرة"):
+        proc = _get_process_name_by_pid(win.ProcessId)
+        if proc == "notepad.exe":
+            return True
+
+    # 3. مطابقة GoLogin
+    if t_lower in ("gologin", "gologin.exe"):
+        proc = _get_process_name_by_pid(win.ProcessId)
+        if proc == "gologin.exe":
+            return True
+
+    return False
 
 
 class UIAExecutor:
@@ -97,40 +149,51 @@ class UIAExecutor:
             return True
 
         # 8. انتظار ظهور نافذة
+        # 8. انتظار ظهور نافذة
         if t == ActionType.WAIT_WINDOW:
             title = (step.window_title or step.input_value or "").strip()
             if not title:
-                raise StepExecutionError("يرجى تحديد جزء من عنوان النافذة المطلوب انتظارها.")
+                raise StepExecutionError("يرجى إدخال جزء من عنوان النافذة المطلوب انتظارها.")
             start = time.time()
-            max_wait = max(step.duration_ms / 1000.0, 5.0)
+            max_wait = max(step.duration_ms / 1000.0, 30.0)
+
             while time.time() - start < max_wait:
-                win = auto.WindowControl(searchDepth=2, SubName=title)
-                if win.Exists(maxSearchSeconds=0.5):
-                    time.sleep(step.delay_after_ms / 1000.0)
-                    return True
-                time.sleep(0.3)
+                root = auto.GetRootControl()
+                for win in root.GetChildren():
+                    if _is_matching_window(win, title):
+                        time.sleep(max(step.delay_after_ms / 1000.0, 1.0))
+                        return True
+                time.sleep(0.8)
             raise StepExecutionError(f"انتهت المهلة ولم تظهر النافذة '{title}'.")
 
-        # 9. إدارة النوافذ
+        # 9. إدارة حالة النوافذ
         if t in {ActionType.FOCUS_WINDOW, ActionType.MINIMIZE_WINDOW, ActionType.MAXIMIZE_WINDOW,
                  ActionType.RESTORE_WINDOW, ActionType.CLOSE_WINDOW}:
             title = (step.window_title or "").strip()
             if not title:
-                raise StepExecutionError("لم يتم تحديد عنوان النافذة.")
-            win = auto.WindowControl(searchDepth=2, SubName=title)
-            if not win.Exists(maxSearchSeconds=timeout):
-                raise StepExecutionError(f"النافذة '{title}' غير موجودة.")
+                raise StepExecutionError("يرجى إدخال عنوان النافذة المستهدفة.")
+
+            root = auto.GetRootControl()
+            matches = [win for win in root.GetChildren() if _is_matching_window(win, title)]
+            exact = [win for win in matches if (win.Name or "").strip().casefold() == title.casefold()]
+            matches = exact or matches
+            if len(matches) > 1:
+                raise ValueError(f"عنوان النافذة ملتبس: '{title}'. يرجى تحديد عنوان أدق.")
+            target_win = matches[0] if matches else None
+
+            if not target_win:
+                raise StepExecutionError(f"لم يتم العثور على النافذة المفتوحة: '{title}'")
 
             if t == ActionType.FOCUS_WINDOW:
-                win.SetActive()
+                target_win.SetActive()
             elif t == ActionType.MINIMIZE_WINDOW:
-                win.Minimize()
+                target_win.Minimize()
             elif t == ActionType.MAXIMIZE_WINDOW:
-                win.Maximize()
+                target_win.Maximize()
             elif t == ActionType.RESTORE_WINDOW:
-                win.Restore()
+                target_win.Restore()
             elif t == ActionType.CLOSE_WINDOW:
-                win.Close()
+                target_win.Close()
             time.sleep(step.delay_after_ms / 1000.0)
             return True
 
@@ -210,6 +273,52 @@ class UIAExecutor:
         if t == ActionType.TYPE_TEXT:
             if step.input_value:
                 auto.SendKeys(step.input_value, waitTime=0.03)
+            time.sleep(step.delay_after_ms / 1000.0)
+            return True
+
+        # 15. تنبيه التدخل اليدوي عبر WhatsApp بالمعرف/الاسم
+        if t == ActionType.NOTIFY_WHATSAPP:
+            contact_name = (step.window_title or os.environ.get("ALERT_CONTACT_NAME", "")).strip()
+            message_text = (step.input_value or "تنبيه: يتطلب التدفق تدخلاً يدوياً للمتابعة.").strip()
+            if not contact_name:
+                raise StepExecutionError("يرجى تحديد جهة اتصال WhatsApp.")
+
+            root = auto.GetRootControl()
+            wa_win = None
+            for win in root.GetChildren():
+                if "whatsapp" in (win.Name or "").lower():
+                    wa_win = win
+                    break
+
+            if not wa_win:
+                subprocess.Popen(["powershell", "-NoProfile", "-Command", "Start-Process 'whatsapp:'"], shell=False)
+                time.sleep(3.0)
+                for win in auto.GetRootControl().GetChildren():
+                    if "whatsapp" in (win.Name or "").lower():
+                        wa_win = win
+                        break
+
+            if not wa_win:
+                raise StepExecutionError("تعذر العثور على نافذة WhatsApp؛ لم يتم إرسال الإشعار.")
+            if wa_win:
+                wa_win.SetActive()
+                wa_win.SetFocus()
+                time.sleep(0.5)
+
+            if contact_name:
+                auto.SendKeys("{Ctrl}f")
+                time.sleep(0.4)
+                for char in contact_name:
+                    auto.SendUnicodeChar(char)
+                time.sleep(0.6)
+                auto.SendKeys("{Enter}")
+                time.sleep(0.5)
+
+            for char in message_text:
+                auto.SendUnicodeChar(char)
+            time.sleep(0.2)
+            auto.SendKeys("{Enter}")
+
             time.sleep(step.delay_after_ms / 1000.0)
             return True
 
