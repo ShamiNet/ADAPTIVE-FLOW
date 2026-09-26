@@ -5,6 +5,7 @@ import uiautomation as auto
 
 from adaptive_flow.core.models import FlowTask, StepAction, ActionType, MultiLocator, VisualAnchor
 from adaptive_flow.core.runner import FlowRunner
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 def activate_gologin():
     root = auto.GetRootControl()

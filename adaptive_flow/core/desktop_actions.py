@@ -56,6 +56,115 @@ def launch_app_via_search(app_name: str, as_admin: bool = True):
         ctypes.windll.user32.keybd_event(VK_RETURN, 0, KEYEVENTF_KEYUP, 0)
 
 
+def execute_compound_hotkey(expr: str) -> bool:
+    """
+    تنفيذ اختصارات المفاتيح المركبة مع تعليق المفاتيح وتكرار النقر:
+    يدعم صيغاً مثل:
+    - ALT+TAB
+    - ALT+TAB*2 أو ALT+TAB*3
+    - ALT+TAB TAB
+    - CTRL+SHIFT+ESC
+    - WIN+D
+    """
+    clean = (expr or "").strip()
+    if not clean:
+        return False
+
+    KEYEVENTF_KEYUP = 0x0002
+    KEYEVENTF_EXTENDEDKEY = 0x0001
+    user32 = ctypes.windll.user32
+
+    VK_CODES = {
+        "ALT": 0x12, "MENU": 0x12,
+        "CTRL": 0x11, "CONTROL": 0x11,
+        "SHIFT": 0x10,
+        "WIN": 0x5B, "WINDOWS": 0x5B, "LWIN": 0x5B, "RWIN": 0x5C,
+        "TAB": 0x09,
+        "ESC": 0x1B, "ESCAPE": 0x1B,
+        "ENTER": 0x0D, "RETURN": 0x0D,
+        "SPACE": 0x20,
+        "BACKSPACE": 0x08,
+        "DEL": 0x2E, "DELETE": 0x2E,
+        "UP": 0x26, "DOWN": 0x28, "LEFT": 0x25, "RIGHT": 0x27,
+        "HOME": 0x24, "END": 0x23, "PGUP": 0x21, "PGDN": 0x22,
+        "F1": 0x70, "F2": 0x71, "F3": 0x72, "F4": 0x73, "F5": 0x74, "F6": 0x75,
+        "F7": 0x76, "F8": 0x77, "F9": 0x78, "F10": 0x79, "F11": 0x7A, "F12": 0x7B
+    }
+
+    def get_vk(k: str):
+        k_up = k.upper().strip("{}").strip()
+        if k_up in VK_CODES:
+            return VK_CODES[k_up]
+        if len(k_up) == 1:
+            return ord(k_up)
+        return None
+
+    clean_key = clean.upper().strip("{}").strip()
+    if "+" not in clean and "*" not in clean and " " not in clean and clean_key not in VK_CODES:
+        return False
+
+    parts = [p.strip() for p in clean.split("+") if p.strip()]
+    if not parts:
+        return False
+
+    if len(parts) == 1 and (" " in parts[0] or "*" in parts[0]):
+        space_parts = parts[0].split()
+        if len(space_parts) > 1 and space_parts[0].upper() in VK_CODES:
+            parts = [space_parts[0], " ".join(space_parts[1:])]
+
+    modifiers = parts[:-1]
+    last_part = parts[-1]
+
+    repeat_count = 1
+    repeat_key_str = last_part
+
+    if "*" in last_part:
+        k_name, count_str = last_part.split("*", 1)
+        repeat_key_str = k_name.strip()
+        try:
+            repeat_count = max(1, min(50, int(count_str.strip())))
+        except ValueError:
+            repeat_count = 1
+    elif " " in last_part:
+        tokens = [t.strip() for t in last_part.split() if t.strip()]
+        if tokens:
+            repeat_key_str = tokens[0]
+            repeat_count = len(tokens)
+
+    mod_vks = [get_vk(m) for m in modifiers]
+    action_vk = get_vk(repeat_key_str)
+
+    if action_vk is None or any(v is None for v in mod_vks):
+        return False
+
+    # 1. الضغط مع الاستمرار على مفاتيح التعديل
+    for vk in mod_vks:
+        flags = KEYEVENTF_EXTENDEDKEY if vk in (0x5B, 0x5C) else 0
+        user32.keybd_event(vk, 0, flags, 0)
+        time.sleep(0.04)
+
+    time.sleep(0.06)
+
+    # 2. النقر المتكرر على المفتاح الأخير
+    for i in range(repeat_count):
+        flags = KEYEVENTF_EXTENDEDKEY if action_vk in (0x09, 0x26, 0x28, 0x25, 0x27) else 0
+        user32.keybd_event(action_vk, 0, flags, 0)
+        time.sleep(0.05)
+        user32.keybd_event(action_vk, 0, flags | KEYEVENTF_KEYUP, 0)
+        if i < repeat_count - 1:
+            time.sleep(0.08)
+
+    time.sleep(0.08)
+
+    # 3. إفلات مفاتيح التعديل بالترتيب العكسي
+    for vk in reversed(mod_vks):
+        flags = KEYEVENTF_EXTENDEDKEY if vk in (0x5B, 0x5C) else 0
+        user32.keybd_event(vk, 0, flags | KEYEVENTF_KEYUP, 0)
+        time.sleep(0.03)
+
+    return True
+
+
 def execute_desktop_action(step):
     """Return False when the action belongs to the element resolver."""
     action = step.action_type
@@ -104,18 +213,18 @@ def execute_desktop_action(step):
             app_name = p.stem if clean_lower.endswith(".exe") else clean_val
             launch_app_via_search(app_name, as_admin=False)
 
-
     elif action in (ActionType.FOCUS_WINDOW, ActionType.MINIMIZE_WINDOW,
                     ActionType.MAXIMIZE_WINDOW, ActionType.RESTORE_WINDOW, ActionType.CLOSE_WINDOW):
-        # تترك إدارة النوافذ الحساسة لـ UIAExecutor لمرونة مطابقة العناوين
         return False
 
     elif action == ActionType.PRESS_KEY:
         if not step.input_value:
             raise ValueError("يرجى إدخال المفتاح المطلوب ضغطه.")
-        auto.SendKeys(step.input_value)
+        val = step.input_value.strip()
+        if not execute_compound_hotkey(val):
+            auto.SendKeys(val)
 
-    elif action == ActionType.TYPE_TEXT and empty:
+    elif action == ActionType.TYPE_TEXT and empty and not step.window_title:
         for char in step.input_value or "":
             auto.SendUnicodeChar(char)
 

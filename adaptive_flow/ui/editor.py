@@ -63,7 +63,6 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         self.name = ctk.StringVar(value=self.task.name)
         self.status = ctk.StringVar(value="جاهز. ابدأ بتكوين السيناريو أو شغّل الأتمتة.")
 
-        # تعيين النص الافتراضي بعد تصحيح ترتيب الكلمات
         default_kind = fix_ar(LABELS[ActionType.CLICK])
         self.kind = ctk.StringVar(value=default_kind)
         self.description = ctk.StringVar(value=default_kind)
@@ -73,8 +72,9 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         self.scroll = ctk.StringVar(value="-3")
         self.window = ctk.StringVar()
         self.args = ctk.StringVar(value="[]")
+        self.human_like = ctk.BooleanVar(value=False)
+        self.wander_duration = ctk.StringVar(value="3.0")
 
-        # مزامنة الوصف الافتراضي عند تغيير نوع الإجراء
         self.kind.trace_add("write", self._on_kind_change)
 
         self._build_ui()
@@ -111,21 +111,58 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
 
         AIPromptDialog(self, on_generated)
 
+    def _set_hotkey_value(self, key_expr: str, label_desc: str = ""):
+        """إدراج الاختصار المختار في حقل القيمة وتحديث الوصف التلقائي."""
+        self.value.delete("1.0", "end")
+        self.value.insert("1.0", key_expr)
+        if label_desc:
+            self.description.set(fix_ar(f"ضغط {label_desc}"))
+
+    def _set_wait_preset(self, seconds: float):
+        """ضبط مدة الانتظار وتحديث وصف الخطوة فورياً بنقرة واحدة."""
+        self.duration.set(str(seconds))
+        self.description.set(fix_ar(f"انتظار {seconds}ث"))
+
+    def _toggle_contextual_widgets(self):
+        """إظهار وإخفاء الأدوات التفاعلية حسب نوع الإجراء المحدد."""
+        # 1. إطار حركة الماوس البشري
+        if hasattr(self, "human_frame") and hasattr(self, "point_box"):
+            is_move = self.kind.get() in (fix_ar(LABELS[ActionType.MOVE_MOUSE]), LABELS[ActionType.MOVE_MOUSE])
+            if is_move:
+                self.human_frame.pack(fill="x", pady=(2, 6), after=self.point_box)
+            else:
+                self.human_frame.pack_forget()
+
+        # 2. إطار أزرار الاختصارات الجاهزة
+        if hasattr(self, "hotkey_frame") and hasattr(self, "value"):
+            is_key = self.kind.get() in (fix_ar(LABELS[ActionType.PRESS_KEY]), LABELS[ActionType.PRESS_KEY])
+            if is_key:
+                self.hotkey_frame.pack(fill="x", pady=(4, 6), after=self.value)
+            else:
+                self.hotkey_frame.pack_forget()
+
+        # 3. إطار أزرار مدد الانتظار السريعة
+        if hasattr(self, "wait_presets_frame") and hasattr(self, "timing_row"):
+            is_wait = self.kind.get() in (fix_ar(LABELS[ActionType.WAIT]), LABELS[ActionType.WAIT])
+            if is_wait:
+                self.wait_presets_frame.pack(fill="x", pady=(4, 6), after=self.timing_row)
+            else:
+                self.wait_presets_frame.pack_forget()
+
     def _on_kind_change(self, *_):
-        """تحديث حقل الوصف التوضيحي تلقائياً ليتطابق مع الإجراء المختار."""
+        """تحديث حقل الوصف التوضيحي وإظهار الأدوات السياقية المناسبة."""
         current_kind = self.kind.get()
         self.description.set(current_kind)
         if hasattr(self, "desc_entry"):
             self.desc_entry.configure(placeholder_text=current_kind)
+        self._toggle_contextual_widgets()
 
     def _build_ui(self):
-        # 1. شريط الرأس المدمج
         header = ctk.CTkFrame(self, fg_color=PALETTE["card_bg"], corner_radius=0, height=56,
                               border_width=1, border_color=PALETTE["border"])
         header.pack(fill="x", side="top")
         header.pack_propagate(False)
 
-        # أزرار الإجراءات الرئيسية
         btn_box = ctk.CTkFrame(header, fg_color="transparent")
         btn_box.pack(side="left", padx=16, pady=10)
 
@@ -165,7 +202,6 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
                       hover_color=PALETTE["success_hover"], corner_radius=6, font=("Segoe UI", 12, "bold"),
                       text_color="#FFFFFF", command=self.run).pack(side="left", padx=3)
 
-        # عنوان التدفق واسمه
         name_box = ctk.CTkFrame(header, fg_color="transparent")
         name_box.pack(side="right", fill="x", expand=True, padx=16, pady=10)
 
@@ -179,18 +215,15 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         name_entry.pack(side="right", fill="x", expand=True)
         self.name.trace_add("write", lambda *_: self.autosave())
 
-        # شريط التقدم النحيف
         self.progress_bar = ctk.CTkProgressBar(self, height=3, corner_radius=0,
                                                fg_color=PALETTE["card_bg"],
                                                progress_color=PALETTE["primary"])
         self.progress_bar.pack(fill="x", side="top")
         self.progress_bar.set(0)
 
-        # 2. جسم المحرر
         body = ctk.CTkFrame(self, fg_color="transparent")
         body.pack(fill="both", expand=True, padx=16, pady=(6, 8))
 
-        # اللوحة اليسرى: مسار الخطوات
         left_card = ctk.CTkFrame(body, fg_color=PALETTE["card_bg"], corner_radius=10,
                                  border_width=1, border_color=PALETTE["border"])
         left_card.pack(side="left", fill="both", expand=True, padx=(0, 6))
@@ -217,6 +250,11 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
                       corner_radius=6, font=("Segoe UI", 10, "bold"), text_color=PALETTE["text_main"],
                       command=self.duplicate).pack(side="right", padx=2)
 
+        ctk.CTkButton(step_tools, text="للأخير ⤓", width=70, height=30, fg_color=PALETTE["card_bg"],
+                      hover_color=PALETTE["card_hover"], border_width=1, border_color=PALETTE["border"],
+                      corner_radius=6, font=("Segoe UI", 10, "bold"), text_color=PALETTE["accent_cyan"],
+                      command=self.move_to_end).pack(side="right", padx=2)
+
         ctk.CTkButton(step_tools, text="↓ تأخير", width=60, height=30, fg_color=PALETTE["card_bg"],
                       hover_color=PALETTE["card_hover"], border_width=1, border_color=PALETTE["border"],
                       corner_radius=6, font=("Segoe UI", 10, "bold"), text_color=PALETTE["text_main"],
@@ -227,7 +265,6 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
                       corner_radius=6, font=("Segoe UI", 10, "bold"), text_color=PALETTE["text_main"],
                       command=lambda: self.move(-1)).pack(side="right", padx=2)
 
-        # اللوحة اليمنى: إعدادات وخصائص الخطوة
         right_card = ctk.CTkFrame(body, fg_color=PALETTE["card_bg"], corner_radius=10,
                                   border_width=1, border_color=PALETTE["border"], width=510)
         right_card.pack(side="right", fill="both", padx=(6, 0))
@@ -268,6 +305,63 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
                                     text_color=PALETTE["text_main"], font=("Segoe UI", 11))
         self.value.pack(fill="x")
 
+        # لوحة أزرار الاختصارات الجاهزة (تظهر تلقائياً عند اختيار ضغط مفتاح)
+        # لوحة أزرار الاختصارات الجاهزة (شبكة 4 أعمدة تضمن ظهور الـ 24 اختصاراً دون اقتطاع)
+        self.hotkey_frame = ctk.CTkFrame(form, fg_color=PALETTE["card_sub"], corner_radius=8,
+                                         border_width=1, border_color=PALETTE["border"])
+
+        ctk.CTkLabel(self.hotkey_frame, text="⚡ اختصارات سريعة وشائعة (24 اختصار):",
+                     font=("Segoe UI", 9, "bold"), text_color=PALETTE["accent_cyan"]).pack(anchor="e", padx=8, pady=(4, 4))
+
+        grid_box = ctk.CTkFrame(self.hotkey_frame, fg_color="transparent")
+        grid_box.pack(fill="x", padx=6, pady=(0, 6))
+
+        for col_idx in range(4):
+            grid_box.grid_columnconfigure(col_idx, weight=1)
+
+        shortcuts = [
+            # سطر 1: النوافذ والتبديل
+            ("Alt + Tab", "ALT+TAB", "تبديل نافذة"),
+            ("Alt+Tab ×2", "ALT+TAB*2", "تبديل نافذتين"),
+            ("Alt+Tab ×3", "ALT+TAB*3", "تبديل 3 نوافذ"),
+            ("Alt + F4", "ALT+F4", "إغلاق النافذة"),
+            # سطر 2: نظام ويندوز والمهام
+            ("Win + D", "WIN+D", "سطح المكتب"),
+            ("Win + E", "WIN+E", "مستكشف الملفات"),
+            ("Win + R", "WIN+R", "نافذة Run"),
+            ("Ctrl+Shift+Esc", "CTRL+SHIFT+ESC", "مدير المهام"),
+            # سطر 3: المتصفح والتبويبات
+            ("Ctrl + T", "CTRL+T", "تبويب جديد"),
+            ("Ctrl + W", "CTRL+W", "إغلاق التبويب"),
+            ("Ctrl + Tab", "CTRL+TAB", "التنقل بين التبويبات"),
+            ("F5 تحديث", "F5", "تحديث الصفحة"),
+            # سطر 4: التحرير والنصوص
+            ("Ctrl + A", "CTRL+A", "تحديد الكل"),
+            ("Ctrl + C", "CTRL+C", "نسخ"),
+            ("Ctrl + V", "CTRL+V", "لصق"),
+            ("Ctrl + X", "CTRL+X", "قص"),
+            # سطر 5: التراجع والبحث والحفظ
+            ("Ctrl + Z", "CTRL+Z", "تراجع"),
+            ("Ctrl + Y", "CTRL+Y", "إعادة"),
+            ("Ctrl + S", "CTRL+S", "حفظ"),
+            ("Ctrl + F", "CTRL+F", "بحث في الصفحة"),
+            # سطر 6: مفاتيح التحكم الأساسية
+            ("Enter ↵", "ENTER", "مفتاح Enter"),
+            ("Esc ⎋", "ESC", "مفتاح Esc"),
+            ("Space ␣", "SPACE", "مسافة"),
+            ("Backspace ⌫", "BACKSPACE", "حذف للخلف"),
+        ]
+
+        for idx, (txt, val, desc) in enumerate(shortcuts):
+            r = idx // 4
+            c = idx % 4
+            btn = ctk.CTkButton(grid_box, text=txt, height=26, fg_color=PALETTE["card_bg"],
+                                hover_color=PALETTE["card_hover"], border_width=1,
+                                border_color=PALETTE["border"], corner_radius=5,
+                                font=("Consolas", 9, "bold"), text_color=PALETTE["text_title"],
+                                command=lambda v=val, d=desc: self._set_hotkey_value(v, d))
+            btn.grid(row=r, column=c, padx=2, pady=2, sticky="ew")
+
         ctk.CTkButton(form, text="🔍 استعراض البرامج المثبتة أو المحمولة (EXE)", height=30,
                       fg_color=PALETTE["card_sub"], hover_color=PALETTE["card_hover"],
                       border_width=1, border_color=PALETTE["accent_cyan"], corner_radius=6,
@@ -275,8 +369,8 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
                       command=self.open_program_selector).pack(fill="x", pady=5)
 
         # 4. حاوية الإحداثيات
-        point_box = ctk.CTkFrame(form, fg_color=PALETTE["card_sub"], corner_radius=6,
-                                 border_width=1, border_color=PALETTE["border"])
+        point_box = self.point_box = ctk.CTkFrame(form, fg_color=PALETTE["card_sub"], corner_radius=6,
+                                                  border_width=1, border_color=PALETTE["border"])
         point_box.pack(fill="x", pady=4)
 
         ctk.CTkButton(point_box, text="🎯 التقاط البداية", width=105, height=30,
@@ -301,6 +395,26 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
                      corner_radius=5, text_color=PALETTE["text_title"]).pack(side="right", padx=(2, 4))
         ctk.CTkLabel(point_box, text="X:", font=("Segoe UI", 10, "bold"), text_color=PALETTE["text_muted"]).pack(side="right")
 
+        # إطار خيارات الحركة البشرية مع حقل تحديد المدة
+        self.human_frame = ctk.CTkFrame(form, fg_color=PALETTE["card_sub"], corner_radius=6,
+                                        border_width=1, border_color=PALETTE["border"])
+
+        self.human_like_cb = ctk.CTkCheckBox(self.human_frame, text="تحريك الماوس عشوائي مماثل لحركة الانسان الطبيعي 🪄",
+                                             variable=self.human_like, font=("Segoe UI", 10, "bold"),
+                                             text_color=PALETTE["accent_cyan"], fg_color=PALETTE["primary"],
+                                             hover_color=PALETTE["primary_hover"], corner_radius=5)
+        self.human_like_cb.pack(side="right", padx=8, pady=6)
+
+        self.wander_dur_entry = ctk.CTkEntry(self.human_frame, textvariable=self.wander_duration,
+                                             width=46, height=28, justify="center",
+                                             fg_color=PALETTE["card_bg"], border_width=1,
+                                             border_color=PALETTE["border"], corner_radius=5,
+                                             text_color=PALETTE["text_title"], font=("Segoe UI", 10, "bold"))
+        self.wander_dur_entry.pack(side="left", padx=6, pady=6)
+
+        ctk.CTkLabel(self.human_frame, text="المدة (ث):", font=("Segoe UI", 9, "bold"),
+                     text_color=PALETTE["text_muted"]).pack(side="left", padx=(6, 0))
+
         # 5. النوافذ المستهدفة / جهة اتصال الإشعار
         win_box = ctk.CTkFrame(form, fg_color="transparent")
         win_box.pack(fill="x", pady=(5, 1))
@@ -317,9 +431,10 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
                      text_color=PALETTE["text_main"], corner_radius=6).pack(fill="x")
 
         # 6. التوقيت والتمرير
+        # 6. التوقيت والتمرير
         ctk.CTkLabel(form, text="إعدادات التوقيت والتمرير:", font=("Segoe UI", 10, "bold"),
                      text_color=PALETTE["text_muted"]).pack(anchor="e", pady=(5, 1))
-        timing_row = ctk.CTkFrame(form, fg_color="transparent")
+        timing_row = self.timing_row = ctk.CTkFrame(form, fg_color="transparent")
         timing_row.pack(fill="x")
 
         for label_text, var in [("تمرير", self.scroll), ("تأخير بعده (ث)", self.delay), ("انتظار (ث)", self.duration)]:
@@ -332,6 +447,34 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
                          fg_color=PALETTE["card_bg"], border_width=1, border_color=PALETTE["border"],
                          text_color=PALETTE["text_title"]).pack(padx=3, pady=(2, 4), fill="x")
 
+        # لوحة أزرار مدد الانتظار السريعة (تظهر فقط عند اختيار انتظار توقيت)
+        self.wait_presets_frame = ctk.CTkFrame(form, fg_color=PALETTE["card_sub"], corner_radius=8,
+                                               border_width=1, border_color=PALETTE["border"])
+
+        ctk.CTkLabel(self.wait_presets_frame, text="⏱️ مدد انتظار سريعة جاهزة:",
+                     font=("Segoe UI", 9, "bold"), text_color=PALETTE["accent_cyan"]).pack(anchor="e", padx=8, pady=(4, 3))
+
+        wait_grid = ctk.CTkFrame(self.wait_presets_frame, fg_color="transparent")
+        wait_grid.pack(fill="x", padx=6, pady=(0, 6))
+
+        for col_idx in range(5):
+            wait_grid.grid_columnconfigure(col_idx, weight=1)
+
+        wait_presets = [
+            ("0.2 ث", 0.2), ("0.5 ث", 0.5), ("1 ث", 1.0), ("2 ث", 2.0), ("3 ث", 3.0),
+            ("5 ث", 5.0), ("10 ث", 10.0), ("15 ث", 15.0), ("30 ث", 30.0), ("60 ث", 60.0),
+        ]
+
+        for idx, (txt, sec) in enumerate(wait_presets):
+            r = idx // 5
+            c = idx % 5
+            btn = ctk.CTkButton(wait_grid, text=txt, height=26, fg_color=PALETTE["card_bg"],
+                                hover_color=PALETTE["card_hover"], border_width=1,
+                                border_color=PALETTE["border"], corner_radius=5,
+                                font=("Consolas", 10, "bold"), text_color=PALETTE["text_title"],
+                                command=lambda s=sec: self._set_wait_preset(s))
+            btn.grid(row=r, column=c, padx=2, pady=2, sticky="ew")
+
         # 7. معاملات البرنامج JSON
         ctk.CTkLabel(form, text='معاملات البرنامج JSON (مثال: ["--incognito"]):', font=("Segoe UI", 10, "bold"),
                      text_color=PALETTE["text_muted"]).pack(anchor="e", pady=(5, 1))
@@ -339,7 +482,6 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
                      border_color=PALETTE["border"], border_width=1, text_color=PALETTE["text_main"],
                      corner_radius=6).pack(fill="x")
 
-        # أزرار الحفظ والإجراء المدمجة بالأسفل
         act_box = ctk.CTkFrame(right_card, fg_color="transparent")
         act_box.pack(fill="x", padx=12, pady=10)
 
@@ -361,7 +503,6 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
                       font=("Segoe UI", 11, "bold"), text_color="#FFFFFF",
                       command=lambda: self.commit(False)).pack(side="right", expand=True, fill="x", padx=(3, 0))
 
-        # 3. شريط الحالة السفلي
         bottom = ctk.CTkFrame(self, fg_color=PALETTE["card_bg"], corner_radius=0, height=38,
                               border_width=1, border_color=PALETTE["border"])
         bottom.pack(fill="x", side="bottom")
@@ -459,7 +600,7 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
             num_lbl = ctk.CTkLabel(num_badge, text=f"#{i:02d}", font=("Consolas", 10, "bold"),
                                    text_color=PALETTE["accent_cyan"] if not is_active else "#FFFFFF")
             num_lbl.pack(expand=True)
-            # أزرار الإجراء السريع المباشرة (تكرار وحذف) بجانب رقم الخطوة
+
             quick_box = ctk.CTkFrame(item, fg_color="transparent")
             quick_box.pack(side="left", padx=(2, 6))
 
@@ -536,6 +677,10 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         sp = step.locator.spatial
         self.x.set(str(sp.x if sp else 0))
         self.y.set(str(sp.y if sp else 0))
+        self.human_like.set(getattr(step, "human_like", False))
+        dur_val = (step.duration_ms / 1000.0) if step.duration_ms > 0 else 3.0
+        self.wander_duration.set(str(dur_val))
+        self._toggle_contextual_widgets()
 
     def selected_index(self):
         return next((i for i, s in enumerate(self.task.steps) if s.step_id == self.selected_step_id), None)
@@ -572,20 +717,30 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
 
             desc = self.description.get().strip() or LABELS[action]
 
+            if action == ActionType.MOVE_MOUSE and self.human_like.get():
+                try:
+                    dur_ms = int(float(self.wander_duration.get()) * 1000)
+                except Exception:
+                    dur_ms = 3000
+            else:
+                dur_ms = int(float(self.duration.get()) * 1000)
+
             step = StepAction(step_id=self.task.steps[index].step_id if update else uuid.uuid4().hex,
                               action_type=action, locator=locator, input_value=value,
                               description=desc,
-                              duration_ms=int(float(self.duration.get()) * 1000),
+                              duration_ms=dur_ms,
                               delay_after_ms=int(float(self.delay.get()) * 1000),
                               scroll_amount=int(self.scroll.get()), window_title=self.window.get(),
                               program_args=json.loads(self.args.get()),
+                              human_like=self.human_like.get() if action == ActionType.MOVE_MOUSE else False,
                               enabled=self.task.steps[index].enabled if update else True)
 
             self.checkpoint()
             if update:
                 self.task.steps[index] = step
             else:
-                self.task.steps.append(step)
+                insert_pos = (index + 1) if index is not None else len(self.task.steps)
+                self.task.steps.insert(insert_pos, step)
 
             self.autosave()
             self.refresh(step.step_id)
@@ -603,6 +758,17 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
             steps[index], steps[index + delta] = steps[index + delta], steps[index]
             self.autosave()
             self.refresh(steps[index + delta].step_id)
+
+    def move_to_end(self):
+        if not self.available():
+            return
+        index = self.selected_index()
+        if index is not None and index < len(self.task.steps) - 1:
+            self.checkpoint()
+            step = self.task.steps.pop(index)
+            self.task.steps.append(step)
+            self.autosave()
+            self.refresh(step.step_id)
 
     def duplicate_by_id(self, step_id):
         if not self.available():

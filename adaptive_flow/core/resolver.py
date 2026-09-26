@@ -9,12 +9,15 @@ class UIAResolver:
     """
 
     @staticmethod
-    def find_element(locator: MultiLocator, timeout: float = 2.0) -> Optional[auto.Control]:
+    def find_element(
+        locator: MultiLocator,
+        timeout: float = 2.0,
+        search_root: Optional[auto.Control] = None
+    ) -> Optional[auto.Control]:
         """
-        محاولة العثور على عنصر التحكم عبر مسار UIA أولاً،
+        محاولة العثور على عنصر التحكم عبر مسار UIA أولاً (ضمن الحاوية المحددة أو سطح المكتب)،
         ثم عبر المطابقة البصرية في حال عدم وجود UIA أو فشله.
         """
-        # 1. فحص مسار UIA فقط إذا كان معرّفاً
         if locator.uia is not None:
             uia_info = locator.uia
             search_params = {}
@@ -28,9 +31,9 @@ class UIAResolver:
                 search_params["ClassName"] = uia_info.class_name
 
             if search_params:
-                ctrl = auto.Control(searchDepth=uia_info.depth or 8, **search_params)
+                base = search_root or auto.GetRootControl()
+                ctrl = base.Control(searchDepth=uia_info.depth or 8, **search_params)
                 if ctrl.Exists(maxSearchSeconds=timeout):
                     return ctrl
 
-        # 2. في حال عدم العثور عبر UIA أو غيابه، ننتقل للبحث البصري إن وُجد
         return None

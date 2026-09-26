@@ -91,6 +91,7 @@ class StepAction(BaseModel):
     scroll_amount: int = -3
     window_title: Optional[str] = None
     program_args: List[str] = Field(default_factory=list)
+    human_like: bool = False
 
 
 class FlowTask(BaseModel):
