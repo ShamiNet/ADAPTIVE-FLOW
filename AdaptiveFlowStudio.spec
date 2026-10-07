@@ -1,9 +1,13 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
 from PyInstaller.utils.hooks import collect_all
+import customtkinter
 
-datas = [('storage', 'storage')]
+ctk_assets = os.path.join(os.path.dirname(customtkinter.__file__), 'assets')
+datas = [('storage', 'storage'), (ctk_assets, 'customtkinter/assets')]
 binaries = []
 hiddenimports = []
+
 tmp_ret = collect_all('customtkinter')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('uiautomation')

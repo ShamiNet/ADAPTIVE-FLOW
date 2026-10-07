@@ -7,7 +7,7 @@ import uuid
 import winsound
 from datetime import datetime
 from pathlib import Path
-from tkinter import filedialog, messagebox
+from tkinter import Menu, filedialog, messagebox
 import customtkinter as ctk
 import uiautomation as auto
 
@@ -57,8 +57,14 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         self.key_listener = None
         self.mouse_listener = None
         self.selected_step_id = None
+        self.selected_step_ids = set()
+        self.selection_anchor_step_id = None
         self.step_widgets = {}
         self.capture_status_timer = None
+        self.copied_steps = []
+
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("blue")
 
         self.title("Adaptive Flow Studio — محرر هندسة الأتمتة المتقدم")
         self.configure(fg_color=PALETTE["bg_root"])
@@ -73,7 +79,7 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         self.description = ctk.StringVar(value=default_kind)
 
         self.x, self.y = ctk.StringVar(value="0"), ctk.StringVar(value="0")
-        self.duration, self.delay = ctk.StringVar(value="1.0"), ctk.StringVar(value="0.3")
+        self.duration, self.delay = ctk.StringVar(value="1.0"), ctk.StringVar(value="0.5")
         self.scroll = ctk.StringVar(value="-3")
         self.window = ctk.StringVar()
         self.args = ctk.StringVar(value="[]")
@@ -107,6 +113,9 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
                 self.status.set(f"تعذر استعادة آخر مهمة: {exc}")
 
         self._sync_task_schedule_to_form()
+        self.bind_all("<Control-c>", lambda event: self._copy_selected_steps())
+        self.bind_all("<Control-v>", lambda event: self._paste_steps())
+        self.bind_all("<Control-x>", lambda event: self._cut_selected_steps())
         self.refresh()
         self.after(100, self.poll)
 
@@ -314,30 +323,72 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         return False
 
     def _toggle_contextual_widgets(self):
-        """إظهار وإخفاء الأدوات التفاعلية حسب نوع الإجراء المحدد."""
-        # 1. إطار حركة الماوس البشري
-        if hasattr(self, "human_frame") and hasattr(self, "point_box"):
-            is_move = self.kind.get() in (fix_ar(LABELS[ActionType.MOVE_MOUSE]), LABELS[ActionType.MOVE_MOUSE])
-            if is_move:
-                self.human_frame.pack(fill="x", pady=(2, 6), after=self.point_box)
-            else:
-                self.human_frame.pack_forget()
+        """إظهار وإخفاء الأدوات التفاعلية حسب نوع الإجراء المحدد، مع ترتيب منطقي لخصائص كل إجراء."""
+        current_kind = self.kind.get()
 
-        # 2. إطار أزرار الاختصارات الجاهزة
-        if hasattr(self, "hotkey_frame") and hasattr(self, "value"):
-            is_key = self.kind.get() in (fix_ar(LABELS[ActionType.PRESS_KEY]), LABELS[ActionType.PRESS_KEY])
-            if is_key:
-                self.hotkey_frame.pack(fill="x", pady=(4, 6), after=self.value)
-            else:
-                self.hotkey_frame.pack_forget()
+        def matches_action(action_type):
+            label = LABELS.get(action_type, "")
+            variants = {label, fix_ar(label), action_type.value, action_type.name}
+            return current_kind in variants
 
-        # 3. إطار أزرار مدد الانتظار السريعة
-        if hasattr(self, "wait_presets_frame") and hasattr(self, "timing_row"):
-            is_wait = self.kind.get() in (fix_ar(LABELS[ActionType.WAIT]), LABELS[ActionType.WAIT])
-            if is_wait:
-                self.wait_presets_frame.pack(fill="x", pady=(4, 6), after=self.timing_row)
-            else:
-                self.wait_presets_frame.pack_forget()
+        is_move = matches_action(ActionType.MOVE_MOUSE)
+        is_key = matches_action(ActionType.PRESS_KEY)
+        is_wait = matches_action(ActionType.WAIT)
+        is_point_action = any(matches_action(action) for action in POINT_ACTIONS)
+        is_window_action = any(matches_action(action) for action in WINDOW_ACTIONS) or matches_action(ActionType.NOTIFY_WHATSAPP)
+        is_value_action = any(matches_action(action) for action in {
+            ActionType.OPEN_URL,
+            ActionType.OPEN_PROGRAM,
+            ActionType.RUN_COMMAND,
+            ActionType.TYPE_TEXT,
+            ActionType.SET_CLIPBOARD,
+            ActionType.PASTE_CLIPBOARD,
+            ActionType.PRESS_KEY,
+            ActionType.NOTIFY_WHATSAPP,
+            ActionType.ALERT,
+        })
+
+        visible_sections = []
+        if hasattr(self, "value_section") and is_value_action:
+            visible_sections.append(self.value_section)
+        if hasattr(self, "hotkey_frame") and is_key:
+            visible_sections.append(self.hotkey_frame)
+        if hasattr(self, "point_box") and is_point_action:
+            visible_sections.append(self.point_box)
+        if hasattr(self, "human_frame") and is_move:
+            visible_sections.append(self.human_frame)
+        if hasattr(self, "window_section"):
+            visible_sections.append(self.window_section)
+        if hasattr(self, "timing_row") and (is_wait or current_kind in (fix_ar(LABELS[ActionType.CLICK]), LABELS[ActionType.CLICK])):
+            visible_sections.append(self.timing_row)
+        if hasattr(self, "wait_presets_frame") and is_wait:
+            visible_sections.append(self.wait_presets_frame)
+
+        for section in [
+            getattr(self, "value_section", None),
+            getattr(self, "hotkey_frame", None),
+            getattr(self, "point_box", None),
+            getattr(self, "human_frame", None),
+            getattr(self, "window_section", None),
+            getattr(self, "timing_row", None),
+            getattr(self, "wait_presets_frame", None),
+        ]:
+            if section is None:
+                continue
+            try:
+                section.pack_forget()
+            except Exception:
+                pass
+
+        after_widget = getattr(self, "desc_entry", None)
+        for section in visible_sections:
+            if section is None:
+                continue
+            try:
+                section.pack(fill="x", pady=(4, 6), after=after_widget)
+            except Exception:
+                section.pack(fill="x", pady=(4, 6))
+            after_widget = section
 
     def _on_kind_change(self, *_):
         """تحديث حقل الوصف التوضيحي وإظهار الأدوات السياقية المناسبة."""
@@ -408,17 +459,17 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         body = ctk.CTkFrame(self, fg_color="transparent")
         body.pack(fill="both", expand=True, padx=16, pady=(6, 8))
 
-        left_card = ctk.CTkFrame(body, fg_color=PALETTE["card_bg"], corner_radius=10,
+        left_card = ctk.CTkFrame(body, fg_color=PALETTE["card_bg"], corner_radius=14,
                                  border_width=1, border_color=PALETTE["border"])
         left_card.pack(side="left", fill="both", expand=True, padx=(0, 6))
 
         left_header = ctk.CTkFrame(left_card, fg_color="transparent")
-        left_header.pack(fill="x", padx=14, pady=(10, 4))
+        left_header.pack(fill="x", padx=14, pady=(12, 6))
         ctk.CTkLabel(left_header, text="المسار الزمني للخطوات", font=("Segoe UI", 13, "bold"),
                      text_color=PALETTE["text_title"]).pack(side="right")
 
-        self.steps_scroll = ctk.CTkScrollableFrame(left_card, fg_color="transparent", corner_radius=6)
-        self.steps_scroll.pack(fill="both", expand=True, padx=10, pady=2)
+        self.steps_scroll = ctk.CTkScrollableFrame(left_card, fg_color="#0E1728", corner_radius=10)
+        self.steps_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 8))
 
         step_tools = ctk.CTkFrame(left_card, fg_color=PALETTE["card_sub"], corner_radius=6, height=42,
                                   border_width=1, border_color=PALETTE["border"])
@@ -482,9 +533,11 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         self.desc_entry.pack(fill="x")
 
         # 3. القيمة / المسار
-        ctk.CTkLabel(form, text="القيمة / المسار / النص المطلوب إدخاله:", font=("Segoe UI", 10, "bold"),
-                     text_color=PALETTE["text_muted"]).pack(anchor="e", pady=(5, 1))
-        self.value = ctk.CTkTextbox(form, height=50, fg_color=PALETTE["card_sub"], border_width=1,
+        self.value_section = ctk.CTkFrame(form, fg_color="transparent")
+        self.value_section.pack(fill="x", pady=(5, 1))
+        ctk.CTkLabel(self.value_section, text="القيمة / المسار / النص المطلوب إدخاله:", font=("Segoe UI", 10, "bold"),
+                     text_color=PALETTE["text_muted"]).pack(anchor="e", pady=(0, 1))
+        self.value = ctk.CTkTextbox(self.value_section, height=50, fg_color=PALETTE["card_sub"], border_width=1,
                                     border_color=PALETTE["border"], corner_radius=6,
                                     text_color=PALETTE["text_main"], font=("Segoe UI", 11))
         self.value.pack(fill="x")
@@ -637,8 +690,10 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
                      text_color=PALETTE["text_muted"]).pack(side="left", padx=(6, 0))
 
         # 5. النوافذ المستهدفة / جهة اتصال الإشعار
-        win_box = ctk.CTkFrame(form, fg_color="transparent")
-        win_box.pack(fill="x", pady=(5, 1))
+        self.window_section = ctk.CTkFrame(form, fg_color="transparent")
+        self.window_section.pack(fill="x", pady=(5, 1))
+        win_box = ctk.CTkFrame(self.window_section, fg_color="transparent")
+        win_box.pack(fill="x", pady=(0, 1))
         ctk.CTkButton(win_box, text="🪟 جلب النوافذ النشطة", width=130, height=26,
                       fg_color=PALETTE["card_sub"], hover_color=PALETTE["card_hover"],
                       border_width=1, border_color=PALETTE["border"],
@@ -647,9 +702,15 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         ctk.CTkLabel(win_box, text="عنوان النافذة / اسم جهة الاتصال:", font=("Segoe UI", 10, "bold"),
                      text_color=PALETTE["text_muted"]).pack(side="right")
 
-        ctk.CTkEntry(form, textvariable=self.window, justify="right", height=32,
+        field_row = ctk.CTkFrame(self.window_section, fg_color="transparent")
+        field_row.pack(fill="x")
+        ctk.CTkEntry(field_row, textvariable=self.window, justify="right", height=32,
                      fg_color=PALETTE["card_sub"], border_color=PALETTE["border"], border_width=1,
-                     text_color=PALETTE["text_main"], corner_radius=6).pack(fill="x")
+                     text_color=PALETTE["text_main"], corner_radius=6).pack(side="right", fill="x", expand=True)
+        ctk.CTkButton(field_row, text="اختيار", width=72, height=32,
+                      fg_color=PALETTE["primary"], hover_color=PALETTE["primary_hover"],
+                      border_width=0, corner_radius=6, font=("Segoe UI", 10, "bold"),
+                      text_color="#FFFFFF", command=self.open_window_selector).pack(side="left", padx=(0, 6))
 
         # 6. التوقيت والتمرير
         # 6. التوقيت والتمرير
@@ -879,47 +940,60 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
             widget.destroy()
         self.step_widgets.clear()
 
-        self.selected_step_id = None
+        if not self.selected_step_ids and selected_id is not None:
+            self.selected_step_ids = {selected_id}
+        elif not self.selected_step_ids and not self.task.steps:
+            self.selected_step_id = None
+
+        if self.selected_step_ids:
+            self.selected_step_id = next(iter(self.selected_step_ids), None)
+        elif selected_id is not None:
+            self.selected_step_id = selected_id
+        else:
+            self.selected_step_id = None
+
         query = self.search.get().casefold() if hasattr(self, 'search') else ''
         for i, step in enumerate(self.task.steps, 1):
             if query and query not in f'{step.description} {step.input_value} {LABELS.get(step.action_type)}'.casefold():
                 continue
-            is_active = (step.step_id == selected_id) or (selected_id is None and i == 1)
-            if is_active and selected_id is None:
-                selected_id = step.step_id
+            is_active = (step.step_id in self.selected_step_ids) or (self.selected_step_id == step.step_id)
+            if selected_id is None and not self.selected_step_ids and i == 1:
+                is_active = True
+                self.selected_step_id = step.step_id
+                self.selected_step_ids = {step.step_id}
 
-            bg = PALETTE["primary"] if is_active else PALETTE["card_sub"]
-            border = PALETTE["border_focus"] if is_active else PALETTE["border"]
+            bg = "#1C5EC9" if is_active else "#1B2436"
+            border = PALETTE["border_focus"] if is_active else "#2B3547"
 
-            item = ctk.CTkFrame(self.steps_scroll, fg_color=bg, corner_radius=6, height=48,
+            item = ctk.CTkFrame(self.steps_scroll, fg_color=bg, corner_radius=12, height=52,
                                 border_width=1, border_color=border)
-            item.pack(fill="x", pady=2, padx=2)
+            item.pack(fill="x", pady=4, padx=3)
             item.pack_propagate(False)
 
-            num_badge = ctk.CTkFrame(item, fg_color=PALETTE["card_bg"], corner_radius=4, width=40, height=26)
-            num_badge.pack(side="left", padx=6, pady=10)
+            num_badge = ctk.CTkFrame(item, fg_color="#101A2B", corner_radius=8, width=42, height=24)
+            num_badge.pack(side="left", padx=(8, 6), pady=12)
             num_badge.pack_propagate(False)
             num_lbl = ctk.CTkLabel(num_badge, text=f"#{i:02d}", font=("Consolas", 10, "bold"),
                                    text_color=PALETTE["accent_cyan"] if not is_active else "#FFFFFF")
             num_lbl.pack(expand=True)
 
             quick_box = ctk.CTkFrame(item, fg_color="transparent")
-            quick_box.pack(side="left", padx=(2, 6))
+            quick_box.pack(side="left", padx=(0, 6))
 
             dup_btn = ctk.CTkButton(
-                quick_box, text="📋", width=28, height=26,
-                fg_color=PALETTE["card_bg"], hover_color=PALETTE["card_hover"],
+                quick_box, text="📋", width=26, height=24,
+                fg_color="#0F172A", hover_color=PALETTE["card_hover"],
                 border_width=1, border_color=PALETTE["border"],
-                corner_radius=4, font=("Segoe UI", 10), text_color=PALETTE["text_main"],
+                corner_radius=6, font=("Segoe UI", 9), text_color=PALETTE["text_main"],
                 command=lambda s_id=step.step_id: self.duplicate_by_id(s_id)
             )
             dup_btn.pack(side="left", padx=1)
 
             del_btn = ctk.CTkButton(
-                quick_box, text="🗑️", width=28, height=26,
-                fg_color=PALETTE["card_bg"], hover_color=PALETTE["danger"],
+                quick_box, text="🗑️", width=26, height=24,
+                fg_color="#0F172A", hover_color=PALETTE["danger"],
                 border_width=1, border_color=PALETTE["border"],
-                corner_radius=4, font=("Segoe UI", 10), text_color=PALETTE["danger"],
+                corner_radius=6, font=("Segoe UI", 9), text_color=PALETTE["danger"],
                 command=lambda s_id=step.step_id: self.delete_by_id(s_id)
             )
             del_btn.pack(side="left", padx=1)
@@ -930,30 +1004,100 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
             display_action = fix_ar(action_text)
             display_desc = fix_ar(desc_text)
 
+            badge_text = ""
+            badge_color = "#1F2937"
+            badge_text_color = PALETTE["text_main"]
+            if step.try_block and step.catch_target_step_id:
+                badge_text = "فشل → CATCH"
+                badge_color = "#7C3AED"
+                badge_text_color = "#FFFFFF"
+            elif step.try_block:
+                badge_text = "TRY"
+                badge_color = "#EA580C"
+                badge_text_color = "#FFFFFF"
+            elif step.catch_block:
+                badge_text = "CATCH"
+                badge_color = "#DC2626"
+                badge_text_color = "#FFFFFF"
+
+            if badge_text:
+                badge_lbl = ctk.CTkLabel(
+                    item, text=badge_text, font=("Segoe UI", 8, "bold"),
+                    fg_color=badge_color, text_color=badge_text_color,
+                    corner_radius=8, padx=8, pady=2
+                )
+                badge_lbl.pack(side="right", padx=(0, 8))
+
             content_lbl = ctk.CTkLabel(item, text=f"{display_action}   —   {display_desc}",
                                        font=("Segoe UI", 10, "bold"),
                                        text_color="#FFFFFF" if is_active else PALETTE["text_main"])
-            content_lbl.pack(side="right", padx=10)
+            content_lbl.pack(side="right", padx=(10, 12), fill="x", expand=True)
 
-            def make_selector(s_id):
-                return lambda e: self.select_by_id(s_id)
+            def make_selector(s_id, multi=False):
+                def _on_click(event):
+                    is_control = bool(event.state & 0x4)
+                    is_shift = bool(event.state & 0x1)
+                    if is_shift and not is_control:
+                        self.select_by_id(s_id, additive=False, range_select=True)
+                    else:
+                        self.select_by_id(s_id, additive=is_control or multi, range_select=False)
+                return _on_click
 
-            for w in (item, num_badge, num_lbl, content_lbl):
+            item.bind("<Button-1>", make_selector(step.step_id))
+
+            item.bind("<Button-3>", lambda event, s_id=step.step_id: self._show_step_context_menu(s_id, event))
+            for w in (num_badge, num_lbl, content_lbl):
                 w.bind("<Button-1>", make_selector(step.step_id))
-
+                w.bind("<Button-3>", lambda event, s_id=step.step_id: self._show_step_context_menu(s_id, event))
             self.step_widgets[step.step_id] = item
 
         self.update_stats()
-        if selected_id in self.step_widgets:
-            self.select_by_id(selected_id)
+        if self.selected_step_ids and len(self.selected_step_ids) == 1:
+            self.selected_step_id = next(iter(self.selected_step_ids))
+            self.select_by_id(self.selected_step_id)
+        elif self.selected_step_id and self.selected_step_id in self.step_widgets:
+            self.select_by_id(self.selected_step_id)
 
-    def select_by_id(self, step_id):
-        self.selected_step_id = step_id
-        for s_id, frame in self.step_widgets.items():
-            if s_id == step_id:
-                frame.configure(fg_color=PALETTE["primary"], border_color=PALETTE["border_focus"])
+    def select_by_id(self, step_id, additive=False, range_select=False):
+        if step_id is None:
+            return
+
+        ordered_ids = [step.step_id for step in self.task.steps]
+
+        if range_select:
+            anchor = self.selection_anchor_step_id or self.selected_step_id or step_id
+            if anchor not in ordered_ids:
+                anchor = step_id
+            anchor_index = ordered_ids.index(anchor)
+            target_index = ordered_ids.index(step_id)
+            start, end = sorted((anchor_index, target_index))
+            self.selected_step_ids = set(ordered_ids[start:end + 1])
+            self.selected_step_id = step_id
+            self.selection_anchor_step_id = anchor
+        elif additive:
+            if step_id in self.selected_step_ids:
+                self.selected_step_ids.remove(step_id)
             else:
-                frame.configure(fg_color=PALETTE["card_sub"], border_color=PALETTE["border"])
+                self.selected_step_ids.add(step_id)
+            if not self.selected_step_ids:
+                self.selected_step_id = None
+            else:
+                self.selected_step_id = next(iter(self.selected_step_ids))
+            self.selection_anchor_step_id = self.selected_step_id
+        else:
+            self.selected_step_ids = {step_id}
+            self.selected_step_id = step_id
+            self.selection_anchor_step_id = step_id
+
+        for s_id, frame in self.step_widgets.items():
+            if s_id in self.selected_step_ids:
+                frame.configure(fg_color="#1C5EC9", border_color=PALETTE["border_focus"])
+            else:
+                frame.configure(fg_color="#1B2436", border_color="#2B3547")
+
+        if len(self.selected_step_ids) != 1:
+            self.status.set(f"تم تحديد {len(self.selected_step_ids)} خطوة")
+            return
 
         step = next((s for s in self.task.steps if s.step_id == step_id), None)
         if not step:
@@ -1027,11 +1171,15 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
             else:
                 dur_ms = int(float(self.duration.get()) * 1000)
 
+            delay_ms = int(float(self.delay.get()) * 1000)
+            if not update:
+                delay_ms = 500
+
             step = StepAction(step_id=self.task.steps[index].step_id if update else uuid.uuid4().hex,
                               action_type=action, locator=locator, input_value=value,
                               description=desc,
                               duration_ms=dur_ms,
-                              delay_after_ms=int(float(self.delay.get()) * 1000),
+                              delay_after_ms=delay_ms,
                               scroll_amount=int(self.scroll.get()), window_title=self.window.get(),
                               program_args=json.loads(self.args.get()),
                               human_like=self.human_like.get() if action == ActionType.MOVE_MOUSE else False,
@@ -1093,6 +1241,236 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
             self.autosave()
             new_id = self.task.steps[max(0, index - 1)].step_id if self.task.steps else None
             self.refresh(new_id)
+
+    def _get_selected_step_ids(self):
+        if self.selected_step_ids:
+            order = {step.step_id: idx for idx, step in enumerate(self.task.steps)}
+            return [step_id for step_id in sorted(self.selected_step_ids, key=lambda sid: order.get(sid, 10 ** 9))]
+        if self.selected_step_id:
+            return [self.selected_step_id]
+        return []
+
+    def _show_step_context_menu(self, step_id, event=None):
+        if step_id not in self.selected_step_ids:
+            self.select_by_id(step_id, additive=False)
+        menu = Menu(self, tearoff=0)
+        menu.add_command(label="إضافة خطوة جديدة بعد هذه", command=lambda: self._insert_new_step_after(step_id))
+        menu.add_command(label="تجربة هذه الخطوة مفردة", command=lambda: self._test_step_by_id(step_id))
+        menu.add_command(label="تجربة الخطوات المحددة", command=lambda: self._test_selected_steps(self._get_selected_step_ids() or [step_id]))
+        menu.add_command(label="إضافة كتلة TRY/CATCH بعد هذه", command=lambda: self._add_try_catch_after(step_id))
+        menu.add_command(label="إضافة CATCH فقط", command=lambda: self._add_catch_after(step_id))
+        menu.add_separator()
+        menu.add_command(label="نسخ", command=self._copy_selected_steps)
+        menu.add_command(label="قص", command=self._cut_selected_steps)
+        menu.add_command(label="لصق بعد هذا", command=lambda: self._paste_steps(insert_after=step_id))
+        menu.add_command(label="تكرار", command=self._duplicate_selected_steps)
+        menu.add_command(label="حذف", command=self._delete_selected_steps)
+        menu.add_command(label="تفعيل/إلغاء التفعيل", command=self._toggle_selected_step_enabled)
+        menu.add_separator()
+        menu.add_command(label="تحديد الكل", command=self._select_all_steps)
+        if event is not None:
+            menu.post(event.x_root, event.y_root)
+        else:
+            menu.post(0, 0)
+
+    def _insert_new_step_after(self, step_id):
+        index = next((i for i, s in enumerate(self.task.steps) if s.step_id == step_id), None)
+        if index is None:
+            return
+        self.checkpoint()
+        new_step = StepAction(
+            step_id=uuid.uuid4().hex,
+            action_type=ActionType.WAIT,
+            input_value="",
+            description="خطوة جديدة",
+            duration_ms=1000,
+            delay_after_ms=500,
+            enabled=True,
+            scroll_amount=-3,
+            program_args=[],
+            window_title="",
+            human_like=False,
+        )
+        self.task.steps.insert(index + 1, new_step)
+        self.autosave()
+        self.refresh(new_step.step_id)
+        self.status.set("تمت إضافة خطوة جديدة بعد الخطوة المحددة.")
+
+    def _add_try_catch_after(self, step_id):
+        index = next((i for i, s in enumerate(self.task.steps) if s.step_id == step_id), None)
+        if index is None:
+            return
+        self.checkpoint()
+        try_step = self.task.steps[index]
+        try_step.try_block = True
+        try_step.description = (try_step.description or "TRY").strip() or "TRY"
+
+        catch_step = StepAction(
+            step_id=uuid.uuid4().hex,
+            action_type=ActionType.ALERT,
+            input_value="فشل تنفيذ الخطوة في كتلة TRY",
+            description="CATCH: فشل تنفيذ الخطوة",
+            duration_ms=1000,
+            delay_after_ms=500,
+            enabled=True,
+            scroll_amount=-3,
+            program_args=[],
+            window_title="",
+            human_like=False,
+            catch_block=True,
+            catch_target_step_id=None,
+        )
+        try_step.catch_target_step_id = catch_step.step_id
+        self.task.steps.insert(index + 1, catch_step)
+        self.autosave()
+        self.refresh(catch_step.step_id)
+        self.status.set("تمت إضافة كتلة TRY/CATCH بعد الخطوة المحددة.")
+
+    def _add_catch_after(self, step_id):
+        index = next((i for i, s in enumerate(self.task.steps) if s.step_id == step_id), None)
+        if index is None:
+            return
+        self.checkpoint()
+        catch_step = StepAction(
+            step_id=uuid.uuid4().hex,
+            action_type=ActionType.ALERT,
+            input_value="فشل التنفيذ. تم تشغيل Catch.",
+            description="CATCH: تنفيذ بديل",
+            duration_ms=1000,
+            delay_after_ms=500,
+            enabled=True,
+            scroll_amount=-3,
+            program_args=[],
+            window_title="",
+            human_like=False,
+            catch_block=True,
+        )
+        self.task.steps.insert(index + 1, catch_step)
+        self.autosave()
+        self.refresh(catch_step.step_id)
+        self.status.set("تمت إضافة خطوة CATCH بعد الخطوة المحددة.")
+
+    def _test_step_by_id(self, step_id):
+        self._test_selected_steps([step_id])
+
+    def _test_selected_steps(self, step_ids):
+        if not self.available():
+            return
+        ids = [sid for sid in (step_ids or []) if sid]
+        if not ids:
+            self.status.set("لا توجد خطوات محددة لتجربتها.")
+            return
+
+        ordered = []
+        seen = set()
+        for step in self.task.steps:
+            if step.step_id in ids and step.step_id not in seen:
+                ordered.append(step)
+                seen.add(step.step_id)
+
+        if not ordered:
+            self.status.set("لم يتم العثور على الخطوات المحددة.")
+            return
+
+        task = self.task.model_copy(deep=True)
+        task.steps = [step.model_copy(deep=True) for step in ordered]
+        self.start_task(task)
+        self.status.set(f"🧪 جارية تجربة {len(ordered)} خطوة محددة.")
+
+    def _toggle_selected_step_enabled(self):
+        ids = self._get_selected_step_ids()
+        if not ids:
+            self.status.set("لا توجد خطوات محددة للتفعيل أو إلغاء التفعيل.")
+            return
+        self.checkpoint()
+        for step in self.task.steps:
+            if step.step_id in ids:
+                step.enabled = not step.enabled
+        self.autosave()
+        self.refresh(ids[0])
+        self.status.set("تم تبديل حالة التفعيل للخطوات المحددة.")
+
+    def _copy_selected_steps(self):
+        ids = self._get_selected_step_ids()
+        if not ids:
+            self.status.set("لا توجد خطوات محددة للنسخ.")
+            return
+        self.copied_steps = []
+        for step in self.task.steps:
+            if step.step_id in ids:
+                self.copied_steps.append(step.model_copy(deep=True, update={"step_id": uuid.uuid4().hex}))
+        self.status.set(f"تم نسخ {len(self.copied_steps)} خطوة إلى الحافظة.")
+
+    def _cut_selected_steps(self):
+        self._copy_selected_steps()
+        self._delete_selected_steps()
+
+    def _duplicate_selected_steps(self):
+        ids = self._get_selected_step_ids()
+        if not ids:
+            self.status.set("لا توجد خطوات محددة للتكرار.")
+            return
+        selected = [s for s in self.task.steps if s.step_id in ids]
+        self.checkpoint()
+        insert_after = self.selected_index()
+        if insert_after is None:
+            insert_after = len(self.task.steps) - 1
+        new_steps = []
+        for step in selected:
+            new_step = step.model_copy(deep=True, update={"step_id": uuid.uuid4().hex})
+            new_steps.append(new_step)
+        for new_step in reversed(new_steps):
+            self.task.steps.insert(insert_after + 1, new_step)
+        self.autosave()
+        self.refresh(new_steps[0].step_id if new_steps else ids[0])
+        self.status.set(f"تم تكرار {len(new_steps)} خطوة.")
+
+    def _delete_selected_steps(self):
+        ids = self._get_selected_step_ids()
+        if not ids:
+            self.status.set("لا توجد خطوات محددة للحذف.")
+            return
+        self.checkpoint()
+        self.task.steps = [step for step in self.task.steps if step.step_id not in ids]
+        self.selected_step_ids = set()
+        self.selected_step_id = self.task.steps[0].step_id if self.task.steps else None
+        self.selection_anchor_step_id = self.selected_step_id
+        self.autosave()
+        self.refresh(self.selected_step_id)
+        self.status.set(f"تم حذف {len(ids)} خطوة.")
+
+    def _select_all_steps(self):
+        self.selected_step_ids = {step.step_id for step in self.task.steps}
+        self.selected_step_id = next(iter(self.selected_step_ids), None)
+        self.selection_anchor_step_id = self.selected_step_id
+        self.refresh(self.selected_step_id)
+
+    def _paste_steps(self, insert_after=None):
+        if not self.copied_steps:
+            self.status.set("الحافظة فارغة، لا توجد خطوات للصق.")
+            return
+
+        self.checkpoint()
+        target_index = None
+        if insert_after is not None:
+            target_index = next((i for i, s in enumerate(self.task.steps) if s.step_id == insert_after), None)
+        elif self.selected_step_id:
+            target_index = next((i for i, s in enumerate(self.task.steps) if s.step_id == self.selected_step_id), None)
+        if target_index is None:
+            target_index = len(self.task.steps)
+
+        pasted = []
+        for step in self.copied_steps:
+            clone = step.model_copy(deep=True, update={"step_id": uuid.uuid4().hex})
+            self.task.steps.insert(target_index + 1, clone)
+            pasted.append(clone)
+            target_index += 1
+
+        self.autosave()
+        self.selected_step_ids = {step.step_id for step in pasted}
+        self.selected_step_id = pasted[-1].step_id if pasted else None
+        self.refresh(self.selected_step_id)
+        self.status.set(f"تم لصق {len(pasted)} خطوة في الموضع المحدد.")
 
     def duplicate(self):
         if self.selected_step_id:
@@ -1165,6 +1543,7 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         from pynput import mouse
         self.cancel.clear()
         self.picking = True
+        self._show_pick_overlay()
         label_target = "الهدف (الإفلات)" if is_target else "البداية (السحب)"
         if left_click_only:
             label_target = "الموضع الدقيق بالزر الأيسر"
@@ -1174,14 +1553,61 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         self.iconify()
         self.start_keys()
 
+        def moved(x, y):
+            if self.picking:
+                self.events.put(("mouse_move", (int(x), int(y))))
+
         def clicked(x, y, button, pressed):
             if pressed and (not left_click_only or button == mouse.Button.left):
                 self.events.put(("point_target" if is_target else "point", (int(x), int(y))))
                 return False
 
-        self.mouse_listener = mouse.Listener(on_click=clicked)
+        self.mouse_listener = mouse.Listener(on_move=moved, on_click=clicked)
         self.mouse_listener.start()
         self.pick_timeout = self.after(20000, self._on_pick_timeout)
+
+    def _show_pick_overlay(self):
+        if hasattr(self, "_pick_overlay") and self._pick_overlay is not None and self._pick_overlay.winfo_exists():
+            self._pick_overlay.deiconify()
+            return
+
+        overlay = ctk.CTkToplevel(self)
+        overlay.withdraw()
+        overlay.attributes("-topmost", True)
+        overlay.attributes("-toolwindow", True)
+        overlay.overrideredirect(True)
+        overlay.configure(fg_color="#101827")
+        overlay.geometry("120x40+0+0")
+
+        frame = ctk.CTkFrame(overlay, fg_color="#111827", corner_radius=10,
+                             border_width=1, border_color="#4FD1C5")
+        frame.pack(fill="both", expand=True, padx=2, pady=2)
+
+        label = ctk.CTkLabel(frame, text="X: 0  Y: 0", font=("Segoe UI", 10, "bold"),
+                             text_color="#E6F7FF", fg_color="transparent")
+        label.pack(fill="both", expand=True, padx=6, pady=4)
+
+        self._pick_overlay = overlay
+        self._pick_overlay_label = label
+
+    def _hide_pick_overlay(self):
+        overlay = getattr(self, "_pick_overlay", None)
+        if overlay is not None and overlay.winfo_exists():
+            try:
+                overlay.withdraw()
+            except Exception:
+                pass
+
+    def _update_pick_overlay(self, x, y):
+        overlay = getattr(self, "_pick_overlay", None)
+        label = getattr(self, "_pick_overlay_label", None)
+        if overlay is None or label is None or not overlay.winfo_exists():
+            return
+
+        label.configure(text=f"X: {int(x)}  Y: {int(y)}")
+        overlay.geometry(f"+{max(0, int(x) + 20)}+{max(0, int(y) + 20)}")
+        if overlay.winfo_ismapped() == 0:
+            overlay.deiconify()
 
     def finish_pick(self):
         if not self.picking:
@@ -1203,6 +1629,7 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
                 self.key_listener.stop()
             except Exception:
                 pass
+        self._hide_pick_overlay()
         self.deiconify()
 
     def _flash_capture_status(self, text, color="#22C55E", alert_type="success"):
@@ -1408,7 +1835,9 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
     def poll(self):
         while not self.events.empty():
             event, value = self.events.get_nowait()
-            if event == "point" and self.picking:
+            if event == "mouse_move" and self.picking:
+                self._update_pick_overlay(value[0], value[1])
+            elif event == "point" and self.picking:
                 self.x.set(str(value[0]))
                 self.y.set(str(value[1]))
                 self.finish_pick()

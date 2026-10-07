@@ -93,6 +93,9 @@ class StepAction(BaseModel):
     window_title: Optional[str] = None
     program_args: List[str] = Field(default_factory=list)
     human_like: bool = False
+    try_block: bool = False
+    catch_block: bool = False
+    catch_target_step_id: Optional[str] = None
 
 
 class FlowTask(BaseModel):

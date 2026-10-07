@@ -1,3 +1,4 @@
+import ctypes
 import threading
 from tkinter import filedialog
 import customtkinter as ctk
@@ -168,39 +169,62 @@ class WindowSelectorDialog(ctk.CTkToplevel):
         for w in self.scroll.winfo_children():
             w.destroy()
 
-        # التأكد من تهيئة UIA في مسار الواجهة
-        try:
-            auto.InitializeUIAutomationInCurrentThread()
-        except Exception:
-            pass
-
         windows = []
         try:
+            auto.InitializeUIAutomationInCurrentThread()
             root = auto.GetRootControl()
             for win in root.GetChildren():
                 title = (win.Name or "").strip()
-                # تصفية النوافذ المخفية أو غير الصالحة
                 if title and win.ControlTypeName == "WindowControl" and win.ClassName != "ApplicationFrameWindow":
-                    # استبعاد نافذة الاختيار نفسها
                     if "اختيار النافذة" not in title:
                         windows.append((title, win.ClassName))
-        except Exception as exc:
-            ctk.CTkLabel(self.scroll, text=f"خطأ في قراءة النوافذ: {exc}",
-                         font=("Segoe UI", 10, "bold"), text_color=PALETTE["danger"]).pack(pady=20)
-            return
+        except Exception:
+            windows = []
 
         if not windows:
+            def enum_windows_proc(hwnd, _):
+                if not hwnd:
+                    return True
+                try:
+                    if ctypes.windll.user32.IsWindowVisible(hwnd) == 0:
+                        return True
+                    length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+                    if length <= 0:
+                        return True
+                    buffer = ctypes.create_unicode_buffer(length + 1)
+                    ctypes.windll.user32.GetWindowTextW(hwnd, buffer, length + 1)
+                    title = buffer.value.strip()
+                    if title and "اختيار النافذة" not in title:
+                        windows.append((title, "Win32"))
+                except Exception:
+                    pass
+                return True
+
+            try:
+                ctypes.windll.user32.EnumWindows(enum_windows_proc, 0)
+            except Exception as exc:
+                ctk.CTkLabel(self.scroll, text=f"خطأ في قراءة النوافذ: {exc}",
+                             font=("Segoe UI", 10, "bold"), text_color=PALETTE["danger"]).pack(pady=20)
+                return
+
+        deduped = []
+        seen = set()
+        for title, cls_name in windows:
+            if title not in seen:
+                seen.add(title)
+                deduped.append((title, cls_name))
+
+        if not deduped:
             ctk.CTkLabel(self.scroll, text="لم يتم العثور على نوافذ مفتوحة.", font=("Segoe UI", 11, "bold"),
                          text_color=PALETTE["text_muted"]).pack(pady=30)
             return
 
-        for title, cls_name in windows:
+        for title, cls_name in deduped:
             card = ctk.CTkFrame(self.scroll, fg_color=PALETTE["card_sub"], corner_radius=8, height=50,
                                 border_width=1, border_color=PALETTE["border"])
             card.pack(fill="x", pady=3, padx=2)
             card.pack_propagate(False)
 
-            # تمرير القيمة بشكل صريح للدالة choose
             btn = ctk.CTkButton(card, text="تحديد", width=70, height=30, fg_color=PALETTE["primary"],
                                 hover_color=PALETTE["primary_hover"], corner_radius=6,
                                 font=("Segoe UI", 10, "bold"), text_color="#FFFFFF",

@@ -163,6 +163,25 @@ class FlowRunner:
                 return True
         return False
 
+    def _find_step_by_id(self, step_id: Optional[str]) -> Optional[StepAction]:
+        if not step_id:
+            return None
+        for step in self.task.steps:
+            if step.step_id == step_id:
+                return step
+        return None
+
+    def _resolve_catch_step(self, step: StepAction) -> Optional[StepAction]:
+        catch_step_id = getattr(step, "catch_target_step_id", None)
+        if catch_step_id:
+            return self._find_step_by_id(catch_step_id)
+
+        if getattr(step, "try_block", False):
+            for candidate in self.task.steps:
+                if candidate.catch_block and candidate.enabled:
+                    return candidate
+        return None
+
     def run(self) -> RunResult:
         self.completed_steps = []
         self.healed_steps = []
@@ -195,11 +214,33 @@ class FlowRunner:
                     healed_steps=self.healed_steps,
                     error_message=str(exc),
                 )
+
+        executed_ids = set()
         for step in self.task.steps:
-            if not step.enabled:
+            if not step.enabled or step.step_id in executed_ids:
                 continue
+            if getattr(step, "catch_block", False) and getattr(step, "catch_target_step_id", None) is None:
+                continue
+
             executed = self._execute_step_with_healing(step)
             if not executed:
+                catch_step = self._resolve_catch_step(step)
+                if catch_step is not None and catch_step.step_id != step.step_id:
+                    catch_executed = self._execute_step_with_healing(catch_step)
+                    if not catch_executed:
+                        return RunResult(
+                            success=False,
+                            completed_steps=self.completed_steps,
+                            healed_steps=self.healed_steps,
+                            failed_step=catch_step.step_id,
+                            failed_step_id=catch_step.step_id,
+                            error_message=f"Failed to execute fallback/catch step {catch_step.step_id}",
+                        )
+                    self.completed_steps.append(step.step_id)
+                    self.healed_steps.append(catch_step.step_id)
+                    self.completed_steps.append(catch_step.step_id)
+                    executed_ids.update({step.step_id, catch_step.step_id})
+                    continue
                 return RunResult(
                     success=False,
                     completed_steps=self.completed_steps,
@@ -209,6 +250,7 @@ class FlowRunner:
                     error_message=f"Failed to execute or heal step {step.step_id}",
                 )
             self.completed_steps.append(step.step_id)
+            executed_ids.add(step.step_id)
 
         return RunResult(
             success=True,

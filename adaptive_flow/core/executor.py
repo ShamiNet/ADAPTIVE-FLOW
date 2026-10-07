@@ -207,6 +207,36 @@ class UIAExecutor:
         return target_hwnd
 
     @staticmethod
+    def _find_window_hwnd_by_title(window_title: str) -> Optional[int]:
+        title = (window_title or "").strip()
+        if not title:
+            return None
+
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        matches = []
+
+        WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+        def enum_proc(hwnd, _):
+            if not user32.IsWindowVisible(hwnd):
+                return True
+            length = user32.GetWindowTextLengthW(hwnd)
+            if length <= 0:
+                return True
+            buf = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buf, length + 1)
+            text = (buf.value or "").strip()
+            if not text:
+                return True
+            if title.casefold() in text.casefold() or text.casefold() in title.casefold():
+                matches.append(hwnd)
+            return True
+
+        proc_cb = WNDENUMPROC(enum_proc)
+        user32.EnumWindows(proc_cb, 0)
+        return matches[0] if matches else None
+
+    @staticmethod
     def _activate_target_window(window_title: str) -> auto.Control:
         title = window_title.strip()
         root = auto.GetRootControl()
@@ -214,8 +244,17 @@ class UIAExecutor:
         exact = [win for win in matches if (win.Name or "").strip().casefold() == title.casefold()]
         matches = exact or matches
         if not matches:
-            raise StepExecutionError(f"لم يتم العثور على النافذة المستهدفة: '{title}'")
-        target_win = matches[0]
+            hwnd = UIAExecutor._find_window_hwnd_by_title(title)
+            if hwnd is None:
+                raise StepExecutionError(f"لم يتم العثور على النافذة المستهدفة: '{title}'")
+            try:
+                target_win = auto.ControlFromHandle(hwnd)
+            except Exception:
+                target_win = None
+            if target_win is None:
+                raise StepExecutionError(f"لم يتم العثور على النافذة المستهدفة: '{title}'")
+        else:
+            target_win = matches[0]
 
         if target_win.NativeWindowHandle:
             UIAExecutor._force_activate_window(target_win.NativeWindowHandle)
