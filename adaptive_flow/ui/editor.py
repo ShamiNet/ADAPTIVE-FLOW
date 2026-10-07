@@ -61,9 +61,9 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         self.capture_status_timer = None
 
         self.title("Adaptive Flow Studio — محرر هندسة الأتمتة المتقدم")
-        self.geometry("1340x900")
-        self.minsize(1180, 760)
         self.configure(fg_color=PALETTE["bg_root"])
+        self.minsize(1180, 760)
+        self.after(50, self._maximize_on_start)
 
         self.name = ctk.StringVar(value=self.task.name)
         self.status = ctk.StringVar(value="جاهز. ابدأ بتكوين السيناريو أو شغّل الأتمتة.")
@@ -109,6 +109,15 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         self._sync_task_schedule_to_form()
         self.refresh()
         self.after(100, self.poll)
+
+    def _maximize_on_start(self):
+        try:
+            self.state("zoomed")
+        except Exception:
+            try:
+                self.wm_state("zoomed")
+            except Exception:
+                pass
 
     def open_ai_planner(self):
         if not self.available():
@@ -336,6 +345,8 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         self.description.set(current_kind)
         if hasattr(self, "desc_entry"):
             self.desc_entry.configure(placeholder_text=current_kind)
+        if hasattr(self, "value"):
+            self.value.delete("1.0", "end")
         self._toggle_contextual_widgets()
 
     def _build_ui(self):
@@ -561,36 +572,43 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         ctk.CTkLabel(point_box, text="انقر بالزر الأيسر في أي مكان لالتقاط X و Y مباشرة، أو استخدم أزرار التقاط البداية/الهدف.",
                      font=("Segoe UI", 9), text_color=PALETTE["text_muted"]).pack(anchor="center", padx=8, pady=(6, 0))
 
-        self.capture_local_btn = ctk.CTkButton(point_box, text="🎯 التقاط البداية", width=105, height=30,
+        row1 = ctk.CTkFrame(point_box, fg_color="transparent")
+        row1.pack(fill="x", padx=5, pady=(5, 4))
+
+        self.capture_local_btn = ctk.CTkButton(row1, text="🎯 التقاط البداية", width=105, height=30,
                                                fg_color=PALETTE["card_bg"], hover_color=PALETTE["card_hover"],
                                                border_width=1, border_color=PALETTE["border"], corner_radius=5,
                                                font=("Segoe UI", 10, "bold"), text_color=PALETTE["text_main"],
                                                command=lambda: self.pick(False))
-        self.capture_local_btn.pack(side="left", padx=5, pady=5)
+        self.capture_local_btn.pack(side="left", padx=(0, 2))
 
-        self.capture_mouse_btn = ctk.CTkButton(point_box, text="🖱️ معرفة إحداثية الماوس", width=150, height=30,
-                                               fg_color=PALETTE["card_bg"], hover_color=PALETTE["card_hover"],
-                                               border_width=1, border_color=PALETTE["border"], corner_radius=5,
-                                               font=("Segoe UI", 10, "bold"), text_color=PALETTE["accent_cyan"],
-                                               command=lambda: self.pick(False, left_click_only=True))
-        self.capture_mouse_btn.pack(side="left", padx=2, pady=5)
-
-        self.capture_target_btn = ctk.CTkButton(point_box, text="🏁 التقاط الهدف", width=105, height=30,
+        self.capture_target_btn = ctk.CTkButton(row1, text="🏁 التقاط الهدف", width=105, height=30,
                                                fg_color=PALETTE["card_bg"], hover_color=PALETTE["card_hover"],
                                                border_width=1, border_color=PALETTE["border"], corner_radius=5,
                                                font=("Segoe UI", 10, "bold"), text_color=PALETTE["text_main"],
                                                command=lambda: self.pick(True))
-        self.capture_target_btn.pack(side="left", padx=2, pady=5)
+        self.capture_target_btn.pack(side="left", padx=(0, 8))
 
-        ctk.CTkEntry(point_box, textvariable=self.y, width=50, height=30, justify="center",
-                     fg_color=PALETTE["card_bg"], border_width=1, border_color=PALETTE["border"],
-                     corner_radius=5, text_color=PALETTE["text_title"]).pack(side="right", padx=(2, 6))
-        ctk.CTkLabel(point_box, text="Y:", font=("Segoe UI", 10, "bold"), text_color=PALETTE["text_muted"]).pack(side="right")
+        coord_group = ctk.CTkFrame(row1, fg_color="transparent")
+        coord_group.pack(side="right", padx=(0, 4))
 
-        ctk.CTkEntry(point_box, textvariable=self.x, width=50, height=30, justify="center",
-                     fg_color=PALETTE["card_bg"], border_width=1, border_color=PALETTE["border"],
-                     corner_radius=5, text_color=PALETTE["text_title"]).pack(side="right", padx=(2, 4))
-        ctk.CTkLabel(point_box, text="X:", font=("Segoe UI", 10, "bold"), text_color=PALETTE["text_muted"]).pack(side="right")
+        for label_text, variable, width in (("X:", self.x, 60), ("Y:", self.y, 60)):
+            field = ctk.CTkFrame(coord_group, fg_color="transparent")
+            field.pack(side="left", padx=(0, 6))
+            ctk.CTkLabel(field, text=label_text, font=("Segoe UI", 10, "bold"),
+                         text_color=PALETTE["text_muted"]).pack(side="left")
+            ctk.CTkEntry(field, textvariable=variable, width=width, height=30, justify="center",
+                         fg_color=PALETTE["card_bg"], border_width=1, border_color=PALETTE["border"],
+                         corner_radius=5, text_color=PALETTE["text_title"]).pack(side="left", padx=(2, 0))
+
+        row2 = ctk.CTkFrame(point_box, fg_color="transparent")
+        row2.pack(fill="x", padx=5, pady=(0, 4))
+        self.capture_mouse_btn = ctk.CTkButton(row2, text="🖱️ معرفة إحداثية الماوس", width=170, height=30,
+                                               fg_color=PALETTE["card_bg"], hover_color=PALETTE["card_hover"],
+                                               border_width=1, border_color=PALETTE["border"], corner_radius=5,
+                                               font=("Segoe UI", 10, "bold"), text_color=PALETTE["accent_cyan"],
+                                               command=lambda: self.pick(False, left_click_only=True))
+        self.capture_mouse_btn.pack(anchor="center")
 
         self.capture_status = ctk.CTkLabel(point_box, text="", anchor="center",
                                           font=("Segoe UI", 9, "bold"),
