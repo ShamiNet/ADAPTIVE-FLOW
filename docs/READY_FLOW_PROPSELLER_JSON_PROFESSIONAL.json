@@ -10,7 +10,13 @@
     "strategy": {
       "gold_window": {
         "enabled": true,
-        "days": ["SUN", "MON", "TUE", "WED", "THU"],
+        "days": [
+          "SUN",
+          "MON",
+          "TUE",
+          "WED",
+          "THU"
+        ],
         "start": "18:00",
         "end": "23:00",
         "repetitions": 6,
@@ -18,7 +24,13 @@
       },
       "lunch_window": {
         "enabled": true,
-        "days": ["SUN", "MON", "TUE", "WED", "THU"],
+        "days": [
+          "SUN",
+          "MON",
+          "TUE",
+          "WED",
+          "THU"
+        ],
         "start": "12:00",
         "end": "14:00",
         "repetitions": 3,
@@ -36,140 +48,279 @@
     {
       "step_id": "open_gologin_profile",
       "action_type": "OPEN_PROGRAM",
-      "description": "Open the selected GoLogin profile and ensure the proxy is active before ads work begins.",
       "locator": {
         "uia": {
-          "process_name": "GoLogin",
+          "automation_id": null,
+          "control_type": null,
           "class_name": "GoLogin",
+          "name": null,
+          "process_name": "GoLogin",
+          "framework_id": null,
+          "runtime_id": null,
           "depth": 8
-        }
+        },
+        "visual": null,
+        "text": null,
+        "spatial": null
       },
       "input_value": "C:\\Program Files\\GoLogin\\GoLogin.exe",
-      "program_args": [],
+      "description": "Open the selected GoLogin profile and ensure the proxy is active before ads work begins.",
       "duration_ms": 4000,
       "delay_after_ms": 3000,
       "enabled": true,
       "scroll_amount": -3,
       "window_title": "GoLogin",
-      "human_like": false
+      "program_args": [],
+      "human_like": false,
+      "try_block": false,
+      "catch_block": false,
+      "catch_target_step_id": null
     },
     {
-      "step_id": "open_propeller_ads",
-      "action_type": "OPEN_URL",
-      "description": "Open the Propeller Ads dashboard in the active browser profile.",
+      "step_id": "b49ba3e7f8d544f58fa13538b1ff7b5e",
+      "action_type": "WAIT",
       "locator": {
-        "text": {
-          "text": "PropellerAds",
-          "is_exact_match": false
-        }
+        "uia": null,
+        "visual": null,
+        "text": null,
+        "spatial": null
       },
-      "input_value": "https://propellerads.com",
-      "duration_ms": 6000,
-      "delay_after_ms": 5000,
+      "input_value": "",
+      "description": "1.0ث انتظار",
+      "duration_ms": 1000,
+      "delay_after_ms": 500,
       "enabled": true,
       "scroll_amount": -3,
-      "window_title": "PropellerAds",
-      "human_like": false
+      "window_title": "GoLogin",
+      "program_args": [],
+      "human_like": false,
+      "try_block": false,
+      "catch_block": false,
+      "catch_target_step_id": null
     },
     {
       "step_id": "open_campaigns_page",
       "action_type": "CLICK",
-      "description": "Navigate to the campaigns or ads page before selecting all campaigns.",
       "locator": {
-        "text": {
-          "text": "Campaigns",
-          "is_exact_match": false
+        "uia": null,
+        "visual": null,
+        "text": null,
+        "spatial": {
+          "x": 2037,
+          "y": 1035,
+          "width": 0,
+          "height": 0,
+          "relative_to_window": false
         }
       },
       "input_value": "Campaigns",
+      "description": "تحديث البروفايل",
       "duration_ms": 3000,
       "delay_after_ms": 4000,
       "enabled": true,
       "scroll_amount": -3,
-      "window_title": "PropellerAds",
-      "human_like": false
+      "window_title": "",
+      "program_args": [],
+      "human_like": false,
+      "try_block": false,
+      "catch_block": false,
+      "catch_target_step_id": null
+    },
+    {
+      "step_id": "6e65100b2d9b43eeba3e61c805ed8265",
+      "action_type": "CLICK",
+      "locator": {
+        "uia": null,
+        "visual": null,
+        "text": null,
+        "spatial": {
+          "x": 2036,
+          "y": 1032,
+          "width": 0,
+          "height": 0,
+          "relative_to_window": false
+        }
+      },
+      "input_value": "Campaigns",
+      "description": "تحديث البروفايل",
+      "duration_ms": 3000,
+      "delay_after_ms": 4000,
+      "enabled": true,
+      "scroll_amount": -3,
+      "window_title": "",
+      "program_args": [],
+      "human_like": false,
+      "try_block": false,
+      "catch_block": false,
+      "catch_target_step_id": null
+    },
+    {
+      "step_id": "a40142fc7c1e41bfb995dd9e6c15ee72",
+      "action_type": "WAIT",
+      "locator": {
+        "uia": null,
+        "visual": null,
+        "text": null,
+        "spatial": null
+      },
+      "input_value": "",
+      "description": "1.0ث انتظار",
+      "duration_ms": 1000,
+      "delay_after_ms": 500,
+      "enabled": true,
+      "scroll_amount": -3,
+      "window_title": "GoLogin",
+      "program_args": [],
+      "human_like": false,
+      "try_block": false,
+      "catch_block": false,
+      "catch_target_step_id": null
     },
     {
       "step_id": "select_all_campaigns",
       "action_type": "CLICK",
-      "description": "Click the Select All button in the campaign list.",
       "locator": {
+        "uia": null,
+        "visual": null,
         "text": {
           "text": "Select All",
+          "ocr_confidence": null,
           "is_exact_match": false
-        }
+        },
+        "spatial": null
       },
       "input_value": "Select All",
+      "description": "Click the Select All button in the campaign list.",
       "duration_ms": 2500,
       "delay_after_ms": 3000,
       "enabled": true,
       "scroll_amount": -3,
-      "window_title": "PropellerAds",
-      "human_like": false
+      "window_title": "",
+      "program_args": [],
+      "human_like": false,
+      "try_block": false,
+      "catch_block": false,
+      "catch_target_step_id": null
+    },
+    {
+      "step_id": "e7dd841215434bc19a3406ec5fda0c5b",
+      "action_type": "WAIT",
+      "locator": {
+        "uia": null,
+        "visual": null,
+        "text": null,
+        "spatial": null
+      },
+      "input_value": "",
+      "description": "1.0ث انتظار",
+      "duration_ms": 1000,
+      "delay_after_ms": 500,
+      "enabled": true,
+      "scroll_amount": -3,
+      "window_title": "GoLogin",
+      "program_args": [],
+      "human_like": false,
+      "try_block": false,
+      "catch_block": false,
+      "catch_target_step_id": null
     },
     {
       "step_id": "start_selected_campaigns",
       "action_type": "CLICK",
-      "description": "Start all selected campaigns.",
       "locator": {
+        "uia": null,
+        "visual": null,
         "text": {
           "text": "Start",
+          "ocr_confidence": null,
           "is_exact_match": false
-        }
+        },
+        "spatial": null
       },
       "input_value": "Start",
+      "description": "Start all selected campaigns.",
       "duration_ms": 2500,
       "delay_after_ms": 3000,
       "enabled": true,
       "scroll_amount": -3,
       "window_title": "PropellerAds",
-      "human_like": false
+      "program_args": [],
+      "human_like": false,
+      "try_block": false,
+      "catch_block": false,
+      "catch_target_step_id": null
     },
     {
       "step_id": "wait_for_campaign_runtime",
       "action_type": "WAIT",
-      "description": "Pause for 20 minutes while the campaigns remain running.",
       "locator": {
+        "uia": null,
+        "visual": null,
         "text": {
           "text": "WAIT_20_MINUTES",
+          "ocr_confidence": null,
           "is_exact_match": true
-        }
+        },
+        "spatial": null
       },
       "input_value": "1200",
+      "description": "Pause for 20 minutes while the campaigns remain running.",
       "duration_ms": 1200000,
       "delay_after_ms": 0,
       "enabled": true,
       "scroll_amount": -3,
       "window_title": "PropellerAds",
-      "human_like": false
+      "program_args": [],
+      "human_like": false,
+      "try_block": false,
+      "catch_block": false,
+      "catch_target_step_id": null
     },
     {
       "step_id": "stop_selected_campaigns",
       "action_type": "CLICK",
-      "description": "Stop all selected campaigns after the runtime window finishes.",
       "locator": {
+        "uia": null,
+        "visual": null,
         "text": {
           "text": "Stop",
+          "ocr_confidence": null,
           "is_exact_match": false
-        }
+        },
+        "spatial": null
       },
       "input_value": "Stop",
+      "description": "Stop all selected campaigns after the runtime window finishes.",
       "duration_ms": 2500,
       "delay_after_ms": 5000,
       "enabled": true,
       "scroll_amount": -3,
       "window_title": "PropellerAds",
-      "human_like": false
+      "program_args": [],
+      "human_like": false,
+      "try_block": false,
+      "catch_block": false,
+      "catch_target_step_id": null
     }
   ],
-  "schedule_enabled": true,
+  "schedule_enabled": false,
   "schedule_timezone": "UTC-7",
-  "schedule_start": "12:00",
-  "schedule_end": "23:00",
-  "schedule_every_day": false,
-  "schedule_days": ["SUN", "MON", "TUE", "WED", "THU"],
+  "schedule_start": "08:00",
+  "schedule_end": "17:00",
+  "schedule_every_day": true,
+  "schedule_days": [
+    "SAT",
+    "SUN",
+    "MON",
+    "TUE",
+    "WED",
+    "THU",
+    "FRI"
+  ],
   "schedule_windows": [
-    { "start": "18:00", "end": "23:00" },
-    { "start": "12:00", "end": "14:00" }
+    {
+      "start": "08:00",
+      "end": "17:00"
+    }
   ]
 }

@@ -390,6 +390,11 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
                 section.pack(fill="x", pady=(4, 6))
             after_widget = section
 
+    def _resolve_action_type_by_label(self, label):
+        if label is None:
+            return None
+        return next((action for action, value in LABELS.items() if fix_ar(value) == label or value == label), None)
+
     def _on_kind_change(self, *_):
         """تحديث حقل الوصف التوضيحي وإظهار الأدوات السياقية المناسبة."""
         current_kind = self.kind.get()
@@ -398,6 +403,13 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
             self.desc_entry.configure(placeholder_text=current_kind)
         if hasattr(self, "value"):
             self.value.delete("1.0", "end")
+
+        selected_action = self._resolve_action_type_by_label(current_kind)
+        if hasattr(self, "window"):
+            needs_window_value = selected_action in WINDOW_ACTIONS or selected_action == ActionType.NOTIFY_WHATSAPP
+            if not needs_window_value:
+                self.window.set("")
+
         self._toggle_contextual_widgets()
 
     def _build_ui(self):
@@ -1118,7 +1130,13 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
         self.duration.set(str(step.duration_ms / 1000))
         self.delay.set(str(step.delay_after_ms / 1000))
         self.scroll.set(str(step.scroll_amount))
-        self.window.set(step.window_title or "")
+
+        requires_window_value = step.action_type in WINDOW_ACTIONS or step.action_type == ActionType.NOTIFY_WHATSAPP
+        if requires_window_value:
+            self.window.set(step.window_title or "")
+        else:
+            self.window.set("")
+
         self.args.set(json.dumps(step.program_args, ensure_ascii=False))
         sp = step.locator.spatial
         self.x.set(str(sp.x if sp else 0))
@@ -1496,6 +1514,8 @@ class FlowEditor(WorkbenchMixin, ProductivityMixin, ctk.CTk):
             default_label = fix_ar(LABELS[ActionType.CLICK])
             self.kind.set(default_label)
             self.description.set(default_label)
+            if hasattr(self, "window"):
+                self.window.set("")
             self.refresh()
 
     def open(self):
