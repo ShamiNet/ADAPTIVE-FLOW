@@ -50,6 +50,7 @@ LABELS = {
     ActionType.SET_CLIPBOARD: "نسخ إلى الحافظة",
     ActionType.PASTE_CLIPBOARD: "لصق من الحافظة",
     ActionType.TAKE_SCREENSHOT: "التقاط صورة للشاشة",
+    ActionType.ALERT: "إظهار تنبيه منبثق",
     ActionType.NOTIFY_WHATSAPP: "تنبيه واتساب (طلب تدخل)",
 }
 

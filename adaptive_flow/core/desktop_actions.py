@@ -138,29 +138,34 @@ def execute_compound_hotkey(expr: str) -> bool:
         return False
 
     # 1. الضغط مع الاستمرار على مفاتيح التعديل
+    # 1. الضغط مع الاستمرار على مفاتيح التعديل مع Scan Code
     for vk in mod_vks:
+        scan = user32.MapVirtualKeyW(vk, 0)
         flags = KEYEVENTF_EXTENDEDKEY if vk in (0x5B, 0x5C) else 0
-        user32.keybd_event(vk, 0, flags, 0)
-        time.sleep(0.04)
-
-    time.sleep(0.06)
-
-    # 2. النقر المتكرر على المفتاح الأخير
-    for i in range(repeat_count):
-        flags = KEYEVENTF_EXTENDEDKEY if action_vk in (0x09, 0x26, 0x28, 0x25, 0x27) else 0
-        user32.keybd_event(action_vk, 0, flags, 0)
+        user32.keybd_event(vk, scan, flags, 0)
         time.sleep(0.05)
-        user32.keybd_event(action_vk, 0, flags | KEYEVENTF_KEYUP, 0)
-        if i < repeat_count - 1:
-            time.sleep(0.08)
 
     time.sleep(0.08)
 
+    # 2. النقر المتكرر على المفتاح الأخير (Tab ليس Extended Key)
+    action_scan = user32.MapVirtualKeyW(action_vk, 0)
+    action_flags = KEYEVENTF_EXTENDEDKEY if action_vk in (0x26, 0x28, 0x25, 0x27, 0x24, 0x23, 0x21, 0x22) else 0
+
+    for i in range(repeat_count):
+        user32.keybd_event(action_vk, action_scan, action_flags, 0)
+        time.sleep(0.06)
+        user32.keybd_event(action_vk, action_scan, action_flags | KEYEVENTF_KEYUP, 0)
+        if i < repeat_count - 1:
+            time.sleep(0.12)
+
+    time.sleep(0.1)
+
     # 3. إفلات مفاتيح التعديل بالترتيب العكسي
     for vk in reversed(mod_vks):
+        scan = user32.MapVirtualKeyW(vk, 0)
         flags = KEYEVENTF_EXTENDEDKEY if vk in (0x5B, 0x5C) else 0
-        user32.keybd_event(vk, 0, flags | KEYEVENTF_KEYUP, 0)
-        time.sleep(0.03)
+        user32.keybd_event(vk, scan, flags | KEYEVENTF_KEYUP, 0)
+        time.sleep(0.04)
 
     return True
 
@@ -218,11 +223,7 @@ def execute_desktop_action(step):
         return False
 
     elif action == ActionType.PRESS_KEY:
-        if not step.input_value:
-            raise ValueError("يرجى إدخال المفتاح المطلوب ضغطه.")
-        val = step.input_value.strip()
-        if not execute_compound_hotkey(val):
-            auto.SendKeys(val)
+        return False
 
     elif action == ActionType.TYPE_TEXT and empty and not step.window_title:
         for char in step.input_value or "":

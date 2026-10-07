@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adaptive Flow Studio - التقرير الشامل والدليل المرجعي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #080B11; /* bg_root */
+            color: #F8FAFC; /* text_main */
+        }
+        .card-bg { background-color: #141A26; } /* card_bg */
+        .card-sub { background-color: #1E2638; } /* card_sub */
+        .border-custom { border-color: #2E3A52; } /* border */
+        .text-accent { color: #0284C7; } /* accent_cyan */
+        .bg-primary { background-color: #2563EB; } /* primary */
+        .bg-primary-hover:hover { background-color: #1D4ED8; } /* primary_hover */
+        
+        /* تأثيرات حركية */
+        .fade-in { animation: fadeIn 0.8s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* التمرير المخصص */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #080B11; }
+        ::-webkit-scrollbar-thumb { background: #2E3A52; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3B82F6; }
+    </style>
+</head>
+<body class="antialiased selection:bg-blue-500 selection:text-white pb-20">
+
+    <!-- شريط الرأس -->
+    <header class="card-bg border-b border-custom sticky top-0 z-50 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-xl">A</div>
+                <h1 class="text-xl font-bold tracking-wide">Adaptive Flow Studio</h1>
+            </div>
+            <nav class="hidden md:flex gap-6 text-sm font-medium text-[#A4B1C7]">
+                <a href="#overview" class="hover:text-white transition">الملخص التنفيذي</a>
+                <a href="#architecture" class="hover:text-white transition">المعمارية التقنية</a>
+                <a href="#features" class="hover:text-white transition">المزايا والقدرات</a>
+                <a href="#guidelines" class="hover:text-white transition">تعليمات ونصائح</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 fade-in">
+        
+        <!-- قسم الترحيب والملخص التنفيذي -->
+        <section id="overview" class="mb-16">
+            <div class="text-center mb-10">
+                <h2 class="text-4xl font-extrabold mb-4 text-transparent bg-clip-text bg-gradient-to-l from-blue-400 to-purple-500">
+                    تقرير المشروع الشامل
+                </h2>
+                <p class="text-lg text-[#A4B1C7] max-w-3xl mx-auto leading-relaxed">
+                    منصة هندسة أتمتة متقدمة تعمل على نظام ويندوز، تدمج بين دقة تحديد عناصر واجهة المستخدم (UIA)، قوة الرؤية الحاسوبية (OpenCV)، وذكاء نماذج اللغة الكبيرة (Gemini) لتوفير تجربة أتمتة هجينة، مرنة، وذاتية الشفاء.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- بطاقة 1 -->
+                <div class="card-sub border border-custom rounded-xl p-6 shadow-md transition hover:-translate-y-1">
+                    <div class="text-3xl mb-3">🧠</div>
+                    <h3 class="text-lg font-bold mb-2 text-white">هندسة هجينة (Hybrid Automation)</h3>
+                    <p class="text-sm text-[#A4B1C7] leading-relaxed">
+                        يعتمد المحرك التنفيذي (UIAExecutor) على مسارات متعددة للنجاح: يبحث أولاً عبر شجرة عناصر الويندوز (UIA)، وإن فشل ينتقل للمطابقة البصرية (Vision/Template Matcher)، وأخيراً يلجأ للإحداثيات المكانية كحل طوارئ (Spatial Fallback).
+                    </p>
+                </div>
+                <!-- بطاقة 2 -->
+                <div class="card-sub border border-custom rounded-xl p-6 shadow-md transition hover:-translate-y-1">
+                    <div class="text-3xl mb-3">🪄</div>
+                    <h3 class="text-lg font-bold mb-2 text-white">الذكاء الاصطناعي (AI & Healing)</h3>
+                    <p class="text-sm text-[#A4B1C7] leading-relaxed">
+                        نظام (Flow Planner) لتحويل الأوامر النصية العربية إلى سيناريوهات أتمتة فورية عبر Gemini. ونظام (Vision Healer) للشفاء الذاتي عند تغير واجهات البرامج وتحليل لقطات الشاشة لاكتشاف الإحداثيات البديلة.
+                    </p>
+                </div>
+                <!-- بطاقة 3 -->
+                <div class="card-sub border border-custom rounded-xl p-6 shadow-md transition hover:-translate-y-1">
+                    <div class="text-3xl mb-3">🥷</div>
+                    <h3 class="text-lg font-bold mb-2 text-white">محاكاة بشرية و Anti-Detect</h3>
+                    <p class="text-sm text-[#A4B1C7] leading-relaxed">
+                        تكامل عميق مع متصفحات (GoLogin/Orbita) للالتفاف على الحمايات. خوارزمية (Minimum Jerk Trajectory) لمحاكاة حركة الفأرة البشرية، ونظام (Idle Wander) لمحاكاة تصفح الإنسان العشوائي أثناء فترات الانتظار.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- قسم المعمارية التقنية (Clean Architecture) -->
+        <section id="architecture" class="mb-16 card-bg border border-custom rounded-2xl p-8">
+            <h2 class="text-2xl font-bold mb-6 border-b border-custom pb-3 flex items-center gap-2">
+                <span class="text-accent">■</span> المعمارية التقنية (Clean Architecture)
+            </h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div>
+                    <p class="text-sm text-[#A4B1C7] mb-4 leading-relaxed">
+                        تم تصميم النظام بهيكلية وحدات مستقلة (Modular) تضمن التوسع والصيانة السهلة:
+                    </p>
+                    <ul class="space-y-3 text-sm">
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-500 mt-1">✓</span>
+                            <div><strong class="text-white">Core:</strong> قلب النظام، يحتوي على محرك التنفيذ (`executor.py`)، نماذج البيانات (`models.py`) المدعومة بـ Pydantic، ومسار الذكاء الاصطناعي (`planner.py`).</div>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-500 mt-1">✓</span>
+                            <div><strong class="text-white">UI:</strong> واجهة المستخدم المبنية بـ CustomTkinter، مفككة بذكاء عبر تقنية Mixins (`editor.py`, `workbench.py`, `productivity.py`) لضمان عدم تضخم الكود.</div>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-500 mt-1">✓</span>
+                            <div><strong class="text-white">Vision:</strong> محرك المطابقة البصرية السريع (`matcher.py`) المعتمد على OpenCV و numpy.</div>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-500 mt-1">✓</span>
+                            <div><strong class="text-white">Recorder:</strong> مسجل ذكي هجين (`smart_recorder.py`) يلتقط النقرات، الأزرار، ويقاطع أحداث الفأرة لإنشاء القوالب البصرية فوراً (`inspector.py`).</div>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-500 mt-1">✓</span>
+                            <div><strong class="text-white">Storage:</strong> نظام إدارة حفظ وتحميل المهام (`task_store.py`) بصيغة JSON آمنة.</div>
+                        </li>
+                    </ul>
+                </div>
+                <div class="bg-[#080B11] p-5 rounded-xl border border-[#2E3A52] font-mono text-xs text-[#64748B] overflow-hidden">
+                    <div class="text-[#A4B1C7] mb-2">/adaptive_flow</div>
+                    <div>├── core/</div>
+                    <div>│   ├── executor.py      <span class="text-green-400"># UIA & Win32 Execution Engine</span></div>
+                    <div>│   ├── desktop_actions.py<span class="text-green-400"># Compound Hotkeys & CLI</span></div>
+                    <div>│   ├── healer.py        <span class="text-green-400"># Gemini Vision Error Recovery</span></div>
+                    <div>│   └── models.py        <span class="text-green-400"># Pydantic Schemas</span></div>
+                    <div>├── ui/</div>
+                    <div>│   ├── editor.py        <span class="text-green-400"># Main CustomTkinter IDE</span></div>
+                    <div>│   ├── workbench.py     <span class="text-green-400"># +21 Batch Tools Panel</span></div>
+                    <div>│   └── dialogs.py       <span class="text-green-400"># AI Prompt & Logs Viewers</span></div>
+                    <div>├── vision/</div>
+                    <div>│   └── matcher.py       <span class="text-green-400"># OpenCV Template Matching</span></div>
+                    <div>└── recorder/</div>
+                    <div>    └── smart_recorder.py<span class="text-green-400"># Global Input Hooking</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- سيتم إدراج باقي الأقسام هنا في الخطوة التالية -->
+         <!-- قسم المزايا والقدرات -->
+        <section id="features" class="mb-16">
+            <h2 class="text-2xl font-bold mb-6 border-b border-custom pb-3 flex items-center gap-2">
+                <span class="text-accent">■</span> القدرات التقنية (Features & Capabilities)
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- الالتفاف على الحماية -->
+                <div class="card-bg border border-custom rounded-xl p-6">
+                    <h3 class="text-lg font-bold mb-4 text-white flex items-center gap-2">
+                        <span>🛡️</span> تجاوز الحمايات وإدارة GoLogin
+                    </h3>
+                    <ul class="list-disc list-inside text-sm text-[#A4B1C7] space-y-3 leading-relaxed">
+                        <li><strong class="text-white">كشف النوافذ المخفية:</strong> تتبع العمليات المتخفية (مثل <code class="text-pink-400">orbita.exe</code>) عبر دوال النظام <code class="text-pink-400">QueryFullProcessImageNameW</code> لتحديد البروفايلات بدقة.</li>
+                        <li><strong class="text-white">الإجبار على التركيز (Force Focus):</strong> تخطي حماية ويندوز لسرقة التركيز عبر ربط خيوط الإدخال <code class="text-pink-400">AttachThreadInput</code> ومحاكاة النبضات العتادية لمفتاح <code class="text-pink-400">Alt</code>.</li>
+                        <li><strong class="text-white">التبديل الحتمي:</strong> اختصار <code class="text-pink-400">CYCLE_GOLOGIN</code> لتدوير بروفايلات المتصفح حتمياً وبالتسلسل، والتقاط النوافذ المحددة حصراً بإطارها الفعلي عبر (DWMAPI).</li>
+                    </ul>
+                </div>
+
+                <!-- أدوات التطوير 21 -->
+                <div class="card-bg border border-custom rounded-xl p-6">
+                    <h3 class="text-lg font-bold mb-4 text-white flex items-center gap-2">
+                        <span>🛠️</span> لوحة التطوير الشاملة (21 أداة مدمجة)
+                    </h3>
+                    <ul class="list-disc list-inside text-sm text-[#A4B1C7] space-y-3 leading-relaxed">
+                        <li><strong class="text-white">إدارة الحالة والترتيب:</strong> تفعيل/تعطيل جماعي، حذف المعطّل، نقل الخطوات، والتكرار العميق (1-100 نسخة مستقلة).</li>
+                        <li><strong class="text-white">تعديل بارامترات جماعي:</strong> إزاحة الإحداثيات المكانية (Shift X,Y)، توحيد أوقات الانتظار، واستبدال النصوص أو عناوين النوافذ عبر التدفق كاملاً.</li>
+                        <li><strong class="text-white">الاستيراد والتصدير:</strong> دمج ملفات JSON، تصدير الخطوات المفعلة فقط، واستخراج تقارير بصيغة CSV مدعومة باللغة العربية بالكامل دون أخطاء ترميز.</li>
+                    </ul>
+                </div>
+
+                <!-- محاكاة المفاتيح والتجوال -->
+                <div class="card-bg border border-custom rounded-xl p-6 md:col-span-2">
+                    <h3 class="text-lg font-bold mb-4 text-white flex items-center gap-2">
+                        <span>⌨️</span> محاكي العتاد والاختصارات (Win32 API & Hooking)
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-[#A4B1C7] leading-relaxed">
+                        <div>
+                            <strong class="text-white block mb-2">نظام الاختصارات المركبة:</strong>
+                            قدرة المحرك على تفسير اختصارات معقدة مثل <code class="bg-gray-800 px-1 rounded text-green-400">ALT+TAB*3</code>، حيث يعلق مفتاح التعديل، ويرسل الـ <code class="bg-gray-800 px-1 rounded text-green-400">ScanCode</code> العتادي الفعلي لمفتاح Tab ثلاث مرات بمدد متفاوتة، ثم يفلت المفاتيح عكسياً لضمان استجابة النظام.
+                        </div>
+                        <div>
+                            <strong class="text-white block mb-2">لقطات الشاشة ولوحة الحافظة:</strong>
+                            دالة مخصصة لتصوير الشاشة أو النافذة المحددة وحقنها مباشرة في ذاكرة النظام المشتركة (Clipboard DIB) متجاوزة مشاكل مؤشرات الذاكرة في بيئة 64-bit، لتكون جاهزة للصق <kbd class="bg-gray-800 text-white px-1 rounded border border-gray-600">Ctrl+V</kbd>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- قسم التعليمات والنصائح -->
+        <section id="guidelines" class="mb-16 card-sub border border-custom rounded-2xl p-8">
+            <h2 class="text-2xl font-bold mb-6 border-b border-custom pb-3 flex items-center gap-2">
+                <span class="text-accent">💡</span> توجيهات الأداء المتقدم وأفضل الممارسات
+            </h2>
+            
+            <div class="space-y-6 text-[#A4B1C7] text-sm">
+                
+                <div>
+                    <h4 class="text-white font-bold mb-2">1. بناء سيناريوهات غير قابلة للكسر (Resilient Flows)</h4>
+                    <p class="leading-relaxed">لا تعتمد على التوقيت الزمني الثابت المطلق. ابدأ التفاعلات دائماً بخطوة <strong>"انتظار ظهور نافذة"</strong> أو <strong>"تنشيط النافذة"</strong> لضمان جاهزية واجهة المستخدم. لبرامج المتصفحات المتعددة، استخدم مفتاح <code class="bg-gray-800 px-1 rounded text-green-400">CYCLE_GOLOGIN</code> لرفع النافذة الصحيحة بدلاً من <code class="bg-gray-800 px-1 rounded text-red-400">Alt+Tab</code> الذي يتأثر بنوافذ النظام العشوائية (MRU Stack).</p>
+                </div>
+
+                <div>
+                    <h4 class="text-white font-bold mb-2">2. استراتيجية الإحداثيات والتعافي (Fallback Strategy)</h4>
+                    <p class="leading-relaxed">عند تسجيل النقرات عبر (Smart Recorder)، يقوم النظام بحفظ 3 أدلة: (UIA, Vision Template, Spatial). في حال تحديث واجهة البرنامج المستهدف، سيحاول النظام النقر برمجياً (UIA)، ثم سيبحث عن الصورة (OpenCV)، وإن فشل سينفذ النقر المكاني. لضمان الموثوقية العالية مع برامج الألعاب أو المحاكيات، يُنصح بتفعيل التحديد البصري نظراً لعدم دعمها لمعايير Accessibility API.</p>
+                </div>
+
+                <div>
+                    <h4 class="text-white font-bold mb-2">3. إدارة الجلسات ومحاكاة البشر (Anti-Bot Bypass)</h4>
+                    <p class="leading-relaxed">في المنصات الحساسة للاكتشاف (مثل إعلانات Affiliate)، قم بتفعيل <strong>"تحريك الماوس عشوائي"</strong> في كل نقرة. في خطوات الانتظار الطويلة، يمكنك تمرير قيم إحداثيات صفرية (X=0, Y=0) لتمكين خوارزمية (Idle Wander) التي ترسم منحنيات بيزييه (Bezier Curves) وتصفح وهمي يبقي الجلسة حية بشكل طبيعي أمام أنظمة مكافحة الروبوتات.</p>
+                </div>
+
+                <div class="bg-black/30 p-5 rounded-xl border border-red-900/50 mt-6 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-1 h-full bg-red-500"></div>
+                    <h4 class="text-red-400 font-bold mb-3 flex items-center gap-2">
+                        <span>⚠️</span> تحذيرات بيئة التشغيل
+                    </h4>
+                    <ul class="list-disc list-inside space-y-2">
+                        <li>تأكد دائماً من تشغيل التطبيق أو المحرر بصلاحيات المسؤول (Run as Administrator) لتتمكن أدوات UIA من اختراق النوافذ المرتفعة (مثل Task Manager أو GoLogin Elevated).</li>
+                        <li>لا تقاطع الفأرة بيدك أثناء تنفيذ التدفق. في حالات الطوارئ أو الأخطاء غير المتوقعة، اضغط <kbd class="bg-gray-800 text-white px-2 py-0.5 rounded border border-gray-600 font-bold">F8</kbd> للإيقاف القسري الفوري للتدفق.</li>
+                        <li>تصدير التطبيق لملف تنفيذي يتم عبر <code class="text-pink-400">pyinstaller --noconsole --onedir --collect-all customtkinter</code> لضمان أسرع وقت استجابة في بيئة التشغيل المعزولة.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+</body>
+</html>

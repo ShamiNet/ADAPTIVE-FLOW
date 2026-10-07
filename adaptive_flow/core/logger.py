@@ -60,12 +60,41 @@ class FlowLogger:
             return False
 
     @classmethod
-    def log_success(cls, task_id: str, step_id: str, action: str, msg: str = "اكتملت الخطوة بنجاح."):
-        cls.log_event("SUCCESS", task_id, step_id, action, msg)
+    def log_success(cls, task_id: str, step_id: str, action: str, msg: str = "اكتملت الخطوة بنجاح.", details: Optional[Dict[str, Any]] = None):
+        cls.log_event("SUCCESS", task_id, step_id, action, msg, details)
 
     @classmethod
     def log_failure(cls, task_id: str, step_id: str, action: str, error: str, details: Optional[Dict[str, Any]] = None):
         cls.log_event("ERROR", task_id, step_id, action, error, details)
+
+    @classmethod
+    def log_step_result(
+        cls,
+        task_id: str,
+        step_id: str,
+        action: str,
+        description: str,
+        success: bool,
+        elapsed_ms: Optional[float] = None,
+        error: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        payload = {
+            "description": description,
+            "action_type": action,
+            "status": "success" if success else "failed",
+        }
+        if elapsed_ms is not None:
+            payload["elapsed_ms"] = round(elapsed_ms, 2)
+        if details:
+            payload.update(details)
+        if success:
+            msg = f"{description} | نجح | {payload.get('elapsed_ms', 0):.2f} ms" if elapsed_ms is not None else f"{description} | نجح"
+            cls.log_success(task_id, step_id, action, msg, payload)
+        else:
+            msg = error or f"{description} | فشل"
+            payload.setdefault("error", msg)
+            cls.log_failure(task_id, step_id, action, msg, payload)
 
     @classmethod
     def read_recent_logs(cls, limit: int = 150):

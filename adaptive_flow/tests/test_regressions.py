@@ -1,12 +1,14 @@
 import os
 import tempfile
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from adaptive_flow.core.models import ActionType, FlowTask, StepAction
 from adaptive_flow.core.planner import FlowPlanner
 from adaptive_flow.core.executor import UIAExecutor, StepExecutionError, _is_matching_window
+from adaptive_flow.core.runner import FlowRunner
 from adaptive_flow.storage.task_store import TaskStorage
 
 
@@ -89,6 +91,40 @@ class RegressionTests(unittest.TestCase):
                                            window_title='Browser', delay_after_ms=0))
         first.Close.assert_called_once()
         second.Close.assert_not_called()
+
+    def test_schedule_timezone_supports_utc_offset_windows(self):
+        tz = FlowRunner._resolve_schedule_timezone('UTC-7')
+        self.assertEqual(tz.utcoffset(None), timedelta(hours=-7))
+
+        task = FlowTask(
+            task_id='sched-1',
+            name='timezone schedule',
+            schedule_enabled=True,
+            schedule_timezone='UTC-7',
+            schedule_every_day=False,
+            schedule_days=['MON'],
+            schedule_windows=[{'start': '18:00', 'end': '23:00'}],
+        )
+        self.assertTrue(FlowRunner._day_is_allowed(task, 'MON'))
+        self.assertFalse(FlowRunner._day_is_allowed(task, 'TUE'))
+        self.assertTrue(FlowRunner._is_in_any_schedule_window(datetime(2024, 1, 1, 20, 0).time(), task.schedule_windows))
+
+    @patch('adaptive_flow.core.runner.datetime')
+    def test_schedule_runner_blocks_outside_configured_timezone_window(self, mock_datetime):
+        tz = FlowRunner._resolve_schedule_timezone('UTC-7')
+        mock_datetime.now.return_value = datetime(2024, 1, 1, 15, 0, tzinfo=tz)
+        task = FlowTask(
+            task_id='sched-2',
+            name='timezone window',
+            schedule_enabled=True,
+            schedule_timezone='UTC-7',
+            schedule_every_day=False,
+            schedule_days=['MON'],
+            schedule_windows=[{'start': '18:00', 'end': '23:00'}],
+        )
+        result = FlowRunner(task).run()
+        self.assertFalse(result.success)
+        self.assertIn('غير فعال الآن', result.error_message)
 
 
 if __name__ == '__main__':

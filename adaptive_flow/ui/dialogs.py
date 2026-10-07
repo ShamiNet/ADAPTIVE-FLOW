@@ -313,8 +313,24 @@ class LogViewerDialog(ctk.CTkToplevel):
                          text_color=PALETTE["text_muted"]).pack(side="left")
             ctk.CTkLabel(top_bar, text=badge_txt, font=("Segoe UI", 10, "bold"), text_color=color).pack(side="right")
 
-            msg_lbl = ctk.CTkLabel(card, text=f"الخطوة {item.get('step_id')}: {item.get('message')}",
-                                   font=("Segoe UI", 11, "bold"), text_color=PALETTE["text_main"], anchor="e")
+            detail_line = item.get("message", "")
+            details = item.get("details") or {}
+            if details:
+                extra = []
+                if details.get("action_type"):
+                    extra.append(f"الإجراء: {details.get('action_type')}")
+                if details.get("description"):
+                    extra.append(f"الوصف: {details.get('description')}")
+                if details.get("elapsed_ms") is not None:
+                    extra.append(f"المدة: {float(details.get('elapsed_ms')) / 1000:.2f} ثانية")
+                if details.get("error"):
+                    extra.append(f"الخطأ: {details.get('error')}")
+                if extra:
+                    detail_line = f"{detail_line} | {' | '.join(extra)}"
+
+            msg_lbl = ctk.CTkLabel(card, text=f"الخطوة {item.get('step_id')}: {detail_line}",
+                                   font=("Segoe UI", 11, "bold"), text_color=PALETTE["text_main"], anchor="e",
+                                   justify="right", wraplength=760)
             msg_lbl.pack(fill="x", padx=10, pady=(2, 8))
 
 class AIPromptDialog(ctk.CTkToplevel):

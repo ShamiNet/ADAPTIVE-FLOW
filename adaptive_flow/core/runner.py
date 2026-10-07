@@ -1,7 +1,10 @@
 import os
+import re
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional, Dict, Any
+from zoneinfo import ZoneInfo
 import uiautomation as auto
 
 from adaptive_flow.core.models import FlowTask, StepAction, ActionType
@@ -69,9 +72,129 @@ class FlowRunner:
         self.completed_steps: List[str] = []
         self.healed_steps: List[str] = []
 
+    @staticmethod
+    def _parse_time_window(value: str, label: str):
+        text = (value or "").strip()
+        if not text:
+            raise ValueError(f"يرجى إدخال {label} بصيغة HH:MM")
+        if not re.fullmatch(r"\d{1,2}:\d{2}", text):
+            raise ValueError(f"صيغة {label} غير صالحة؛ مثال: 08:30")
+        hour, minute = map(int, text.split(":"))
+        if not (0 <= hour <= 23 and 0 <= minute <= 59):
+            raise ValueError(f"القيمة {label} خارج النطاق المقبول. مثال: 00:00 إلى 23:59")
+        return hour, minute
+
+    @classmethod
+    def _is_in_schedule_window(cls, current_time, start_time, end_time):
+        current_minutes = current_time.hour * 60 + current_time.minute
+        start_minutes = start_time[0] * 60 + start_time[1]
+        end_minutes = end_time[0] * 60 + end_time[1]
+        if start_minutes == end_minutes:
+            return True
+        if start_minutes < end_minutes:
+            return start_minutes <= current_minutes <= end_minutes
+        return current_minutes >= start_minutes or current_minutes <= end_minutes
+
+    @staticmethod
+    def _resolve_schedule_timezone(task_or_value):
+        value = task_or_value
+        if not isinstance(value, str):
+            value = str(getattr(task_or_value, "schedule_timezone", "UTC") or "UTC")
+        tz_name = (value or "UTC").strip()
+        if not tz_name:
+            return timezone.utc
+
+        upper = tz_name.upper()
+        if upper in {"UTC", "GMT", "Z"}:
+            return timezone.utc
+
+        offset_match = re.fullmatch(r"(?:UTC|GMT)?(?P<sign>[+-])(?P<hours>\d{1,2})(?::?(?P<minutes>\d{2}))?", upper)
+        if offset_match:
+            sign = 1 if offset_match.group("sign") == "+" else -1
+            hours = int(offset_match.group("hours"))
+            minutes = int(offset_match.group("minutes") or 0)
+            offset = timedelta(hours=hours, minutes=minutes) * sign
+            return timezone(offset)
+
+        if re.fullmatch(r"[A-Za-z_\-/]+", tz_name):
+            try:
+                return ZoneInfo(tz_name)
+            except Exception:
+                pass
+
+        if re.fullmatch(r"(?i)US[-_ ]?(?P<offset>[+-]?\d{1,2})", tz_name):
+            offset = int(re.fullmatch(r"(?i)US[-_ ]?(?P<offset>[+-]?\d{1,2})", tz_name).group("offset"))
+            return timezone(timedelta(hours=offset))
+
+        raise ValueError(f"النطاق الزمني غير صالح: {tz_name}. مثال: UTC, UTC-7, America/Los_Angeles")
+
+    @staticmethod
+    def _normalize_schedule_windows(task) -> List[Dict[str, str]]:
+        windows = list(getattr(task, "schedule_windows", []) or [])
+        if windows:
+            normalized = []
+            for item in windows:
+                if isinstance(item, dict):
+                    normalized.append({
+                        "start": str(item.get("start", "08:00")).strip() or "08:00",
+                        "end": str(item.get("end", "17:00")).strip() or "17:00",
+                    })
+            if normalized:
+                return normalized
+        start = str(getattr(task, "schedule_start", "08:00") or "08:00").strip() or "08:00"
+        end = str(getattr(task, "schedule_end", "17:00") or "17:00").strip() or "17:00"
+        return [{"start": start, "end": end}]
+
+    @classmethod
+    def _day_is_allowed(cls, task, current_day: Optional[str] = None) -> bool:
+        if getattr(task, "schedule_every_day", True):
+            return True
+        tz = cls._resolve_schedule_timezone(task)
+        current_day = (current_day or datetime.now(tz).strftime("%a").upper())
+        allowed_days = {str(day).upper() for day in getattr(task, "schedule_days", []) if str(day).strip()}
+        return not allowed_days or current_day in allowed_days
+
+    @classmethod
+    def _is_in_any_schedule_window(cls, current_time, windows) -> bool:
+        for window in windows:
+            start = cls._parse_time_window(str(window.get("start", "08:00")), "بداية التشغيل المجدول")
+            end = cls._parse_time_window(str(window.get("end", "17:00")), "نهاية التشغيل المجدول")
+            if cls._is_in_schedule_window(current_time, start, end):
+                return True
+        return False
+
     def run(self) -> RunResult:
         self.completed_steps = []
         self.healed_steps = []
+        if getattr(self.task, "schedule_enabled", False):
+            windows = self._normalize_schedule_windows(self.task)
+            try:
+                tz = self._resolve_schedule_timezone(self.task)
+                current_dt = datetime.now(tz)
+                current_day = current_dt.strftime("%a").upper()
+                if not self._day_is_allowed(self.task, current_day):
+                    allowed = sorted({str(day).upper() for day in getattr(self.task, "schedule_days", []) if str(day).strip()})
+                    return RunResult(
+                        success=False,
+                        completed_steps=self.completed_steps,
+                        healed_steps=self.healed_steps,
+                        error_message=f"التشغيل المجدول غير فعال لهذا اليوم. الأيام المسموح بها: {', '.join(allowed) if allowed else 'لا يوجد يوم محدد'}.",
+                    )
+                if not self._is_in_any_schedule_window(current_dt.time(), windows):
+                    window_text = ", ".join(f"{w['start']} - {w['end']}" for w in windows)
+                    return RunResult(
+                        success=False,
+                        completed_steps=self.completed_steps,
+                        healed_steps=self.healed_steps,
+                        error_message=f"التشغيل المجدول غير فعال الآن. يسمح فقط خلال الفترات: {window_text} ({getattr(self.task, 'schedule_timezone', 'UTC')}).",
+                    )
+            except ValueError as exc:
+                return RunResult(
+                    success=False,
+                    completed_steps=self.completed_steps,
+                    healed_steps=self.healed_steps,
+                    error_message=str(exc),
+                )
         for step in self.task.steps:
             if not step.enabled:
                 continue

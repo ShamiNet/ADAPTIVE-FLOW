@@ -1,0 +1,175 @@
+{
+  "task_id": "propeller_ads_utc7_scheduler_v2",
+  "name": "Propeller Ads - US-7 Campaign Runner",
+  "version": "1.0.0",
+  "metadata": {
+    "campaign": "Propeller Ads",
+    "market": "US",
+    "timezone": "UTC-7",
+    "proxy_manager": "GoLogin",
+    "strategy": {
+      "gold_window": {
+        "enabled": true,
+        "days": ["SUN", "MON", "TUE", "WED", "THU"],
+        "start": "18:00",
+        "end": "23:00",
+        "repetitions": 6,
+        "campaign_action": "start_and_stop_every_20_minutes"
+      },
+      "lunch_window": {
+        "enabled": true,
+        "days": ["SUN", "MON", "TUE", "WED", "THU"],
+        "start": "12:00",
+        "end": "14:00",
+        "repetitions": 3,
+        "campaign_action": "start_and_stop_every_20_minutes"
+      },
+      "notes": [
+        "This flow is intended for US-7 timezone scheduling.",
+        "It updates the proxy profile before opening the campaign dashboard.",
+        "It starts all selected campaigns, waits 20 minutes, then stops them.",
+        "The same pattern is repeated multiple times within each allowed window."
+      ]
+    }
+  },
+  "steps": [
+    {
+      "step_id": "open_gologin_profile",
+      "action_type": "OPEN_PROGRAM",
+      "description": "Open the selected GoLogin profile and ensure the proxy is active before ads work begins.",
+      "locator": {
+        "uia": {
+          "process_name": "GoLogin",
+          "class_name": "GoLogin",
+          "depth": 8
+        }
+      },
+      "input_value": "C:\\Program Files\\GoLogin\\GoLogin.exe",
+      "program_args": [],
+      "duration_ms": 4000,
+      "delay_after_ms": 3000,
+      "enabled": true,
+      "scroll_amount": -3,
+      "window_title": "GoLogin",
+      "human_like": false
+    },
+    {
+      "step_id": "open_propeller_ads",
+      "action_type": "OPEN_URL",
+      "description": "Open the Propeller Ads dashboard in the active browser profile.",
+      "locator": {
+        "text": {
+          "text": "PropellerAds",
+          "is_exact_match": false
+        }
+      },
+      "input_value": "https://propellerads.com",
+      "duration_ms": 6000,
+      "delay_after_ms": 5000,
+      "enabled": true,
+      "scroll_amount": -3,
+      "window_title": "PropellerAds",
+      "human_like": false
+    },
+    {
+      "step_id": "open_campaigns_page",
+      "action_type": "CLICK",
+      "description": "Navigate to the campaigns or ads page before selecting all campaigns.",
+      "locator": {
+        "text": {
+          "text": "Campaigns",
+          "is_exact_match": false
+        }
+      },
+      "input_value": "Campaigns",
+      "duration_ms": 3000,
+      "delay_after_ms": 4000,
+      "enabled": true,
+      "scroll_amount": -3,
+      "window_title": "PropellerAds",
+      "human_like": false
+    },
+    {
+      "step_id": "select_all_campaigns",
+      "action_type": "CLICK",
+      "description": "Click the Select All button in the campaign list.",
+      "locator": {
+        "text": {
+          "text": "Select All",
+          "is_exact_match": false
+        }
+      },
+      "input_value": "Select All",
+      "duration_ms": 2500,
+      "delay_after_ms": 3000,
+      "enabled": true,
+      "scroll_amount": -3,
+      "window_title": "PropellerAds",
+      "human_like": false
+    },
+    {
+      "step_id": "start_selected_campaigns",
+      "action_type": "CLICK",
+      "description": "Start all selected campaigns.",
+      "locator": {
+        "text": {
+          "text": "Start",
+          "is_exact_match": false
+        }
+      },
+      "input_value": "Start",
+      "duration_ms": 2500,
+      "delay_after_ms": 3000,
+      "enabled": true,
+      "scroll_amount": -3,
+      "window_title": "PropellerAds",
+      "human_like": false
+    },
+    {
+      "step_id": "wait_for_campaign_runtime",
+      "action_type": "WAIT",
+      "description": "Pause for 20 minutes while the campaigns remain running.",
+      "locator": {
+        "text": {
+          "text": "WAIT_20_MINUTES",
+          "is_exact_match": true
+        }
+      },
+      "input_value": "1200",
+      "duration_ms": 1200000,
+      "delay_after_ms": 0,
+      "enabled": true,
+      "scroll_amount": -3,
+      "window_title": "PropellerAds",
+      "human_like": false
+    },
+    {
+      "step_id": "stop_selected_campaigns",
+      "action_type": "CLICK",
+      "description": "Stop all selected campaigns after the runtime window finishes.",
+      "locator": {
+        "text": {
+          "text": "Stop",
+          "is_exact_match": false
+        }
+      },
+      "input_value": "Stop",
+      "duration_ms": 2500,
+      "delay_after_ms": 5000,
+      "enabled": true,
+      "scroll_amount": -3,
+      "window_title": "PropellerAds",
+      "human_like": false
+    }
+  ],
+  "schedule_enabled": true,
+  "schedule_timezone": "UTC-7",
+  "schedule_start": "12:00",
+  "schedule_end": "23:00",
+  "schedule_every_day": false,
+  "schedule_days": ["SUN", "MON", "TUE", "WED", "THU"],
+  "schedule_windows": [
+    { "start": "18:00", "end": "23:00" },
+    { "start": "12:00", "end": "14:00" }
+  ]
+}

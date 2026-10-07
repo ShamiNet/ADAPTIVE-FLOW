@@ -1,0 +1,91 @@
+{
+  "task_id": "propeller_ads_gold_lunch_scheduler",
+  "name": "Propeller Ads - Gold and Lunch Scheduler",
+  "version": "1.0.0",
+  "schedule_enabled": true,
+  "schedule_timezone": "UTC-7",
+  "schedule_every_day": false,
+  "schedule_days": ["SUN", "MON", "TUE", "WED", "THU"],
+  "schedule_windows": [
+    { "start": "18:00", "end": "23:00" },
+    { "start": "12:00", "end": "14:00" }
+  ],
+  "metadata": {
+    "campaign": "Propeller Ads",
+    "country": "US",
+    "timezone": "UTC-7",
+    "notes": "Run campaign cycles during golden and lunch windows only.",
+    "target_profile": "Gologin profile",
+    "repeat_settings": {
+      "gold_window": 6,
+      "lunch_window": 3,
+      "cycle_wait_minutes": 20
+    }
+  },
+  "steps": [
+    {
+      "step_id": "update_proxy",
+      "name": "Update Gologin proxy",
+      "action_type": "OPEN_PROGRAM",
+      "enabled": true,
+      "input_value": "C:\\Path\\To\\Gologin\\Gologin.exe",
+      "program_args": [],
+      "delay_after_ms": 3000,
+      "description": "Open the Gologin profile and update the proxy for the selected profile."
+    },
+    {
+      "step_id": "open_propeller",
+      "name": "Open Propeller Ads",
+      "action_type": "OPEN_URL",
+      "enabled": true,
+      "input_value": "https://propellerads.com",
+      "delay_after_ms": 6000,
+      "description": "Open the Propeller Ads dashboard."
+    },
+    {
+      "step_id": "open_campaigns",
+      "name": "Open Campaigns page",
+      "action_type": "CLICK",
+      "enabled": true,
+      "input_value": "Campaigns",
+      "delay_after_ms": 4000,
+      "description": "Open the campaigns or ads management page."
+    },
+    {
+      "step_id": "select_all_campaigns",
+      "name": "Select all campaigns",
+      "action_type": "CLICK",
+      "enabled": true,
+      "input_value": "Select All",
+      "delay_after_ms": 3000,
+      "description": "Click the Select All button for all campaigns."
+    },
+    {
+      "step_id": "start_campaigns",
+      "name": "Start campaigns",
+      "action_type": "CLICK",
+      "enabled": true,
+      "input_value": "Start",
+      "delay_after_ms": 3000,
+      "description": "Start the selected campaigns."
+    },
+    {
+      "step_id": "wait_20_minutes",
+      "name": "Wait 20 minutes",
+      "action_type": "WAIT",
+      "enabled": true,
+      "input_value": "1200",
+      "delay_after_ms": 0,
+      "description": "Wait 20 minutes before stopping campaigns."
+    },
+    {
+      "step_id": "stop_campaigns",
+      "name": "Stop campaigns",
+      "action_type": "CLICK",
+      "enabled": true,
+      "input_value": "Stop",
+      "delay_after_ms": 3000,
+      "description": "Stop all running campaigns."
+    }
+  ]
+}

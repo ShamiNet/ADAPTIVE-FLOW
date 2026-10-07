@@ -38,6 +38,7 @@ class ActionType(str, Enum):
     TAKE_SCREENSHOT = "TAKE_SCREENSHOT"
 
     # إشعارات وتنبيهات
+    ALERT = "ALERT"
     NOTIFY_WHATSAPP = "NOTIFY_WHATSAPP"
 
 
@@ -100,3 +101,12 @@ class FlowTask(BaseModel):
     version: str = "1.0.0"
     metadata: Dict[str, Any] = Field(default_factory=dict)
     steps: List[StepAction] = Field(default_factory=list)
+    schedule_enabled: bool = False
+    schedule_timezone: str = "UTC-7"
+    schedule_start: str = "08:00"
+    schedule_end: str = "17:00"
+    schedule_every_day: bool = True
+    schedule_days: List[str] = Field(
+        default_factory=lambda: ["SAT", "SUN", "MON", "TUE", "WED", "THU", "FRI"]
+    )
+    schedule_windows: List[Dict[str, str]] = Field(default_factory=list)
